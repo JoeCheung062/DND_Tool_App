@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  DM
+  ADMIN
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  username     String     @unique
+  passwordHash String
+  role         Role       @default(USER)
+  avatarUrl    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  campaigns    Campaign[] @relation("CampaignOwner")
+  memberships  CampaignMember[]
+  characters   Character[]
+  messages     Message[]
+}
+
+model Campaign {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  status      CampaignStatus @default(DRAFT)
+  coverUrl    String?
+  ownerId     String
+  owner       User           @relation("CampaignOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  members     CampaignMember[]
+  characters  Character[]
+  messages    Message[]
+  sessions    GameSession[]
+}
+
+model CampaignMember {
+  id         String   @id @default(cuid())
+  campaignId String
+  userId     String
+  role       Role     @default(USER)
+  joinedAt   DateTime @default(now())
+
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId])
+}
+
+model Character {
+  id         String   @id @default(cuid())
+  name       String
+  className  String
+  level      Int      @default(1)
+  race       String?
+  avatarUrl  String?
+  stats      Json?
+  campaignId String?
+  ownerId    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model GameSession {
+  id         String   @id @default(cuid())
+  campaignId String
+  title      String
+  notes      String?
+  startedAt  DateTime @default(now())
+  endedAt    DateTime?
+
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  campaignId String
+  senderId   String
+  content    String
+  createdAt  DateTime @default(now())
+
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sender     User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Upload {
+  id         String   @id @default(cuid())
+  filename   String
+  originalName String
+  mimeType   String
+  size       Int
+  url        String
+  storage    String   @default("local") // local | s3
+  uploaderId String?
+  createdAt  DateTime @default(now())
+}
