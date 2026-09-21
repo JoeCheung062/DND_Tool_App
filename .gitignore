@@ -9,4 +9,3 @@ uploads/*
 coverage/
 .idea/
 .vscode/
-dist/
