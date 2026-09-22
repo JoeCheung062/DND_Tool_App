@@ -88,7 +88,7 @@ export async function saveUpload(
   uploaderId?: string
 ) {
   if (!file) {
-    throw new AppError(400, "No file provided. Use field name \"image\".");
+    throw new AppError(400, "No file provided. Use field name \"file\".");
   }
 
   if (!ALLOWED_MIME.has(file.mimetype)) {

@@ -75,7 +75,9 @@ export async function getMaterial(id: string) {
   return shapeMaterial(material);
 }
 
-export async function createMaterial(input: CreateMaterialInput) {
+export async function createMaterial(
+  input: CreateMaterialInput & { assetUrl: string }
+) {
   await assertCampaignIds(input.campaignIds);
   await assertTagIds(input.tagIds);
 

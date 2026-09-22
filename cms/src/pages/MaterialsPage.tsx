@@ -7,6 +7,33 @@ import { ErrorBanner, Field, LoadingState, PageHeader } from "../components/ui";
 
 const TYPES: MaterialType[] = ["IMAGE", "EFFECT", "SOUND"];
 
+const ACCEPT_BY_TYPE: Record<MaterialType, string> = {
+  IMAGE: "image/jpeg,image/png,image/webp,image/gif",
+  EFFECT: "image/*,video/mp4,video/webm",
+  SOUND: "audio/mpeg,audio/wav,audio/ogg,audio/webm,.mp3,.wav,.ogg",
+};
+
+function AssetPreview({ material }: { material: Material }) {
+  const url = material.assetUrl;
+  if (material.type === "IMAGE" || material.type === "EFFECT") {
+    if (/\.(png|jpe?g|gif|webp)(\?|$)/i.test(url) || url.includes("/uploads/")) {
+      return (
+        <a href={url} target="_blank" rel="noreferrer">
+          <img src={url} alt={material.name} className="asset-thumb" />
+        </a>
+      );
+    }
+  }
+  if (material.type === "SOUND") {
+    return <audio controls src={url} preload="metadata" className="asset-audio" />;
+  }
+  return (
+    <a className="mono" href={url} target="_blank" rel="noreferrer">
+      {url}
+    </a>
+  );
+}
+
 export function MaterialsPage() {
   const [rows, setRows] = useState<Material[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -17,7 +44,7 @@ export function MaterialsPage() {
   const [editing, setEditing] = useState<Material | null>(null);
   const [type, setType] = useState<MaterialType>("IMAGE");
   const [name, setName] = useState("");
-  const [assetUrl, setAssetUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [campaignIds, setCampaignIds] = useState<string[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -49,7 +76,7 @@ export function MaterialsPage() {
     setEditing(null);
     setType("IMAGE");
     setName("");
-    setAssetUrl("");
+    setFile(null);
     setCampaignIds([]);
     setTagIds([]);
     setOpen(true);
@@ -59,7 +86,7 @@ export function MaterialsPage() {
     setEditing(row);
     setType(row.type);
     setName(row.name);
-    setAssetUrl(row.assetUrl);
+    setFile(null);
     setCampaignIds(row.campaigns?.map((c) => c.id) ?? []);
     setTagIds(row.tagList?.map((t) => t.id) ?? []);
     setOpen(true);
@@ -71,18 +98,30 @@ export function MaterialsPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!editing && !file) {
+      setError("Please choose a file to upload");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const body = {
-        type,
-        name: name.trim(),
-        assetUrl: assetUrl.trim(),
-        campaignIds,
-        tagIds,
-      };
-      if (editing) await materialsApi.update(editing.id, body);
-      else await materialsApi.create(body);
+      if (editing) {
+        await materialsApi.update(editing.id, {
+          type,
+          name: name.trim(),
+          file: file ?? undefined,
+          campaignIds,
+          tagIds,
+        });
+      } else {
+        await materialsApi.create({
+          type,
+          name: name.trim(),
+          file: file!,
+          campaignIds,
+          tagIds,
+        });
+      }
       setOpen(false);
       await load();
     } catch (err) {
@@ -106,7 +145,7 @@ export function MaterialsPage() {
     <div>
       <PageHeader
         title="Materials"
-        subtitle="Image / Effect / Sound slides with campaign presets and tags."
+        subtitle="Upload Image / Effect / Sound files with campaign presets and tags."
         actions={
           <button type="button" className="btn" onClick={openCreate}>
             New material
@@ -131,9 +170,7 @@ export function MaterialsPage() {
               {
                 key: "asset",
                 header: "Asset",
-                render: (r) => (
-                  <span className="mono">{r.assetUrl}</span>
-                ),
+                render: (r) => <AssetPreview material={r} />,
               },
               {
                 key: "campaigns",
@@ -197,7 +234,10 @@ export function MaterialsPage() {
           <Field label="Type">
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as MaterialType)}
+              onChange={(e) => {
+                setType(e.target.value as MaterialType);
+                setFile(null);
+              }}
             >
               {TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -209,13 +249,17 @@ export function MaterialsPage() {
           <Field label="Name">
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </Field>
-          <Field label="Asset URL">
+          <Field label={editing ? "Replace file (optional)" : "Upload file"}>
             <input
-              value={assetUrl}
-              onChange={(e) => setAssetUrl(e.target.value)}
-              placeholder="/uploads/file.png"
-              required
+              type="file"
+              accept={ACCEPT_BY_TYPE[type]}
+              required={!editing}
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
+            {editing && !file ? (
+              <span className="hint">Current: {editing.assetUrl}</span>
+            ) : null}
+            {file ? <span className="hint">Selected: {file.name}</span> : null}
           </Field>
           <Field label="Presets in campaigns">
             <div className="checklist">

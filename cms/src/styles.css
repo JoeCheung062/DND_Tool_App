@@ -295,6 +295,28 @@ p {
   color: var(--ink-soft);
 }
 
+.asset-thumb {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  display: block;
+}
+
+.asset-audio {
+  max-width: 220px;
+  height: 32px;
+}
+
+.hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
 .empty,
 .loading {
   padding: 2rem 1rem;

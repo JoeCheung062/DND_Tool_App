@@ -43,7 +43,7 @@ async function parseBody(res: Response): Promise<unknown> {
 
 export async function api<T>(
   path: string,
-  options: RequestInit & { json?: unknown } = {}
+  options: RequestInit & { json?: unknown; formData?: FormData } = {}
 ): Promise<T> {
   const headers = new Headers(options.headers);
   const token = getToken();
@@ -51,6 +51,7 @@ export async function api<T>(
   if (options.json !== undefined) {
     headers.set("Content-Type", "application/json");
   }
+  // Do not set Content-Type for FormData — browser sets multipart boundary
 
   let res: Response;
   try {
@@ -58,7 +59,11 @@ export async function api<T>(
       ...options,
       headers,
       body:
-        options.json !== undefined ? JSON.stringify(options.json) : options.body,
+        options.formData !== undefined
+          ? options.formData
+          : options.json !== undefined
+            ? JSON.stringify(options.json)
+            : options.body,
     });
   } catch {
     throw new ApiError(

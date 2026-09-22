@@ -101,7 +101,8 @@ export const materialTypeSchema = z.enum(["IMAGE", "EFFECT", "SOUND"]);
 export const createMaterialSchema = z.object({
   type: materialTypeSchema,
   name: z.string().min(1).max(200),
-  assetUrl: z.string().min(1),
+  /** Optional when uploading a file via multipart field `file` */
+  assetUrl: z.string().min(1).optional(),
   campaignIds: z.array(z.string().min(1)).default([]),
   tagIds: z.array(z.string().min(1)).default([]),
 });

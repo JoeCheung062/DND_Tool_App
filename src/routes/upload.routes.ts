@@ -10,7 +10,14 @@ router.get("/storage", optionalAuth, uploadController.storageInfo);
 router.post(
   "/image",
   authenticate,
-  upload.single("image"),
+  upload.single("file"),
+  uploadController.uploadImage
+);
+
+router.post(
+  "/file",
+  authenticate,
+  upload.single("file"),
   uploadController.uploadImage
 );
 

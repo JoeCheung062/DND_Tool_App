@@ -103,20 +103,40 @@ export const materialsApi = {
   create: (body: {
     type: MaterialType;
     name: string;
-    assetUrl: string;
+    file: File;
     campaignIds?: string[];
     tagIds?: string[];
-  }) => api<Material>("/materials", { method: "POST", json: body }),
+  }) => {
+    const formData = new FormData();
+    formData.append("type", body.type);
+    formData.append("name", body.name);
+    formData.append("file", body.file);
+    formData.append("campaignIds", JSON.stringify(body.campaignIds ?? []));
+    formData.append("tagIds", JSON.stringify(body.tagIds ?? []));
+    return api<Material>("/materials", { method: "POST", formData });
+  },
   update: (
     id: string,
     body: {
       type?: MaterialType;
       name?: string;
-      assetUrl?: string;
+      file?: File;
       campaignIds?: string[];
       tagIds?: string[];
     }
-  ) => api<Material>(`/materials/${id}`, { method: "PATCH", json: body }),
+  ) => {
+    const formData = new FormData();
+    if (body.type) formData.append("type", body.type);
+    if (body.name) formData.append("name", body.name);
+    if (body.file) formData.append("file", body.file);
+    if (body.campaignIds) {
+      formData.append("campaignIds", JSON.stringify(body.campaignIds));
+    }
+    if (body.tagIds) {
+      formData.append("tagIds", JSON.stringify(body.tagIds));
+    }
+    return api<Material>(`/materials/${id}`, { method: "PATCH", formData });
+  },
   remove: (id: string) =>
     api<{ id: string }>(`/materials/${id}`, { method: "DELETE" }),
 };

@@ -89,17 +89,27 @@ async function main() {
     token,
     body: { name: `tag_${Date.now()}` },
   });
-  const mat = await req("POST", "/materials", {
-    token,
-    body: {
-      type: "IMAGE",
-      name: "Tavern",
-      assetUrl: "/uploads/tavern.png",
-      campaignIds: [campaign.id],
-      tagIds: [tag.id],
-    },
+
+  // Material with direct file upload
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64"
+  );
+  const form = new FormData();
+  form.append("type", "IMAGE");
+  form.append("name", "Uploaded Pixel");
+  form.append("campaignIds", JSON.stringify([campaign.id]));
+  form.append("tagIds", JSON.stringify([tag.id]));
+  form.append("file", new Blob([png], { type: "image/png" }), "pixel.png");
+
+  const matRes = await fetch(`${BASE}/materials`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
   });
-  console.log("material ok", mat.id);
+  const matJson = await matRes.json();
+  if (!matJson.success) throw new Error(`material upload => ${JSON.stringify(matJson)}`);
+  console.log("material upload ok", matJson.data.id, matJson.data.assetUrl);
 
   console.log("ALL ADMIN/USER CRUD PASSED");
 }
