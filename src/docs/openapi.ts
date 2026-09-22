@@ -4,7 +4,7 @@ export const openApiDocument = {
     title: "DND App API",
     version: "1.1.0",
     description:
-      "CRUD API for Room, Campaign, User, Character, Tag, Material Slide (Image/Effect/Sound), and Combination. Socket.IO realtime at `/socket.io`.",
+      "Data management CRUD API for Room, Campaign, User, Character, Tag, Material Slide (Image/Effect/Sound), and Combination. Admin table inspect at `/api/admin`. Socket.IO at `/socket.io`.",
   },
   servers: [{ url: "/api", description: "API base" }],
   components: {
@@ -108,6 +108,33 @@ export const openApiDocument = {
         tags: ["System"],
         summary: "Health check",
         responses: { "200": { description: "OK" } },
+      },
+    },
+    "/admin/overview": {
+      get: {
+        tags: ["Admin"],
+        security: [{ bearerAuth: [] }],
+        summary: "Entity counts for data management dashboard",
+        responses: { "200": { description: "Counts" } },
+      },
+    },
+    "/admin/tables": {
+      get: {
+        tags: ["Admin"],
+        security: [{ bearerAuth: [] }],
+        summary: "List PostgreSQL tables and row counts",
+        responses: { "200": { description: "Tables" } },
+      },
+    },
+    "/admin/tables/{table}": {
+      get: {
+        tags: ["Admin"],
+        security: [{ bearerAuth: [] }],
+        summary: "Describe columns of a SQL table",
+        parameters: [
+          { name: "table", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: { "200": { description: "Columns" } },
       },
     },
     "/auth/register": {
@@ -420,6 +447,7 @@ export const openApiDocument = {
   },
   tags: [
     { name: "System" },
+    { name: "Admin" },
     { name: "Auth" },
     { name: "User" },
     { name: "Room" },

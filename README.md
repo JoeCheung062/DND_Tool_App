@@ -1,6 +1,37 @@
 # DND App Server
 
-Express + PostgreSQL (Prisma) backend with JWT auth, Zod validation, OpenAPI docs, optional S3 uploads, and Socket.IO.
+Express + PostgreSQL (Prisma) backend for managing DND data: JWT auth, Zod validation, OpenAPI docs, optional S3 uploads, and Socket.IO.
+
+## How to check SQL tables
+
+### 1. List tables + row counts (CLI)
+```bash
+npm run db:tables
+```
+
+### 2. Prisma Studio (browser GUI)
+```bash
+npm run db:studio
+```
+Opens `http://localhost:5555` — click any model (Room, Campaign, Material, …) to browse/edit rows.
+
+### 3. Raw SQL (`psql`)
+```bash
+npm run db:psql
+# then:
+\dt                          -- list tables
+\d "Material"                -- describe columns
+SELECT * FROM "Room";
+SELECT id, name, type FROM "Material";
+```
+
+### 4. Via API (JWT required)
+```bash
+# after login, use the token:
+curl -H "Authorization: Bearer <JWT>" http://localhost:3000/api/admin/tables
+curl -H "Authorization: Bearer <JWT>" http://localhost:3000/api/admin/tables/Material
+curl -H "Authorization: Bearer <JWT>" http://localhost:3000/api/admin/overview
+```
 
 ## Database (PostgreSQL)
 
@@ -25,6 +56,7 @@ cp .env.example .env
 docker compose up -d
 npm install
 npx prisma migrate deploy
+npm run db:seed          # sample data (dm@example.com / password123)
 npm run dev
 ```
 
@@ -32,20 +64,21 @@ npm run dev
 - Docs: `http://localhost:3000/api/docs`
 - Socket.IO: `http://localhost:3000/socket.io`
 
-## CRUD endpoints
+## Data management API
 
-| Resource | Base path |
-|----------|-----------|
-| User | `/api/auth/users` (+ `/register`, `/login`, `/me`) |
-| Room | `/api/rooms` |
-| Campaign | `/api/campaigns` |
-| Character | `/api/characters` |
-| Tag | `/api/tags` |
-| Material | `/api/materials` |
-| Combination | `/api/combinations` |
-| Upload | `/api/uploads/image` |
+| Resource | Base path | Methods |
+|----------|-----------|---------|
+| Admin overview / SQL tables | `/api/admin/overview`, `/api/admin/tables` | GET |
+| User | `/api/auth/users` (+ `/register`, `/login`, `/me`) | CRUD |
+| Room | `/api/rooms` | CRUD |
+| Campaign | `/api/campaigns` | CRUD |
+| Character | `/api/characters` | CRUD |
+| Tag | `/api/tags` | CRUD |
+| Material | `/api/materials` | CRUD |
+| Combination | `/api/combinations` | CRUD |
+| Upload | `/api/uploads/image` | POST |
 
-Each resource supports `GET /`, `POST /`, `GET /:id`, `PATCH /:id`, `DELETE /:id`.
+CRUD = `GET /`, `POST /`, `GET /:id`, `PATCH /:id`, `DELETE /:id`.
 
 ### Material example
 
