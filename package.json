@@ -21,7 +21,8 @@
     "test:crud": "node scripts/crud-smoke.mjs",
     "cms:dev": "npm run dev --prefix cms",
     "cms:build": "npm run build --prefix cms",
-    "cms:preview": "npm run preview --prefix cms"
+    "cms:preview": "npm run preview --prefix cms",
+    "cms:install": "npm install --prefix cms"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

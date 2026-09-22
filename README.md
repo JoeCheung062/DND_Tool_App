@@ -114,12 +114,21 @@ socket.emit("material:play", { roomId, materialId }, console.log);
 
 ## CMS (data management UI)
 
+> The CMS lives on branch `cursor/dnd-cms-dda5` (not `main` yet).
+
 ```bash
+git fetch origin
+git checkout cursor/dnd-cms-dda5
+npm install
+npm install --prefix cms
+
 npm run db:seed
-npm run dev          # API on :3000
+npm run dev          # API on :3000  (separate terminal)
 npm run cms:dev      # CMS on :5173
 ```
 
 Open `http://localhost:5173` and sign in with `dm@example.com` / `password123`.
+
+If you see `Missing script: "cms:dev"`, you are on the wrong branch — run `git checkout cursor/dnd-cms-dda5`.
 
 The CMS provides dashboard counts, full CRUD for Rooms / Campaigns / Characters / Tags / Materials / Combinations, user profile editing, and SQL table inspection.
