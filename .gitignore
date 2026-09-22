@@ -1,8 +1,8 @@
 node_modules/
 dist/
 dist-electron/
-uploads/*
-!uploads/.gitkeep
+**/uploads/*
+!**/uploads/.gitkeep
 .env
 .env.local
 *.log

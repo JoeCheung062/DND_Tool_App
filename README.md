@@ -1,207 +1,27 @@
-# DND App Server
+# DND App
 
-Express + PostgreSQL (Prisma) backend for managing DND data: JWT auth, Zod validation, OpenAPI docs, optional S3 uploads, and Socket.IO.
+Three apps in one repository:
 
-## How to check SQL tables
-
-### 1. List tables + row counts (CLI)
-```bash
-npm run db:tables
-```
-
-### 2. Prisma Studio (browser GUI)
-```bash
-npm run db:studio
-```
-Opens `http://localhost:5555` — click any model (Room, Campaign, Material, …) to browse/edit rows.
-
-### 3. Raw SQL (`psql`)
-```bash
-npm run db:psql
-# then:
-\dt                          -- list tables
-\d "Material"                -- describe columns
-SELECT * FROM "Room";
-SELECT id, name, type FROM "Material";
-```
-
-### 4. Via API (JWT required)
-```bash
-# after login, use the token:
-curl -H "Authorization: Bearer <JWT>" http://localhost:3000/api/admin/tables
-curl -H "Authorization: Bearer <JWT>" http://localhost:3000/api/admin/tables/Material
-curl -H "Authorization: Bearer <JWT>" http://localhost:3000/api/admin/overview
-```
-
-## Database (PostgreSQL)
-
-All core tables support full **CRUD**:
-
-| Table | Fields |
-|-------|--------|
-| **Room** | `id`, `name`, optional `campaignId` (script) |
-| **Campaign** | `id`, `name` (used as Display App “script”) |
-| **User** | `id`, profile (`displayName`, `avatarUrl`, `bio`) — **no login** |
-| **Admin** | `id`, email, password, role (`SUPER_ADMIN` / `ADMIN` / `DM`) — **CMS login** |
-| **Character** | `id`, `name`, `illustration`, `userId` |
-| **Tag** | `id`, `name` |
-| **Material** (Slide) | `id`, `type` (`IMAGE`/`EFFECT`/`SOUND`), `name`, `assetUrl`, campaign presets (M2M), tags (M2M) |
-| **Combination** | `id`, `name`, `mainMaterialId`, connect materials (M2M) |
-
-Join tables: `MaterialCampaignPreset`, `MaterialTag`, `CombinationConnect`.
+| Folder | What it is |
+|--------|------------|
+| [`server/`](server/) | Express + PostgreSQL API, Prisma, JWT, Socket.IO |
+| [`cms/`](cms/) | React CMS for managing data |
+| [`display/`](display/) | Electron desktop app for multi-screen display |
 
 ## Quick start
 
 ```bash
-git fetch origin && git checkout cursor/dnd-cms-dda5
-cp .env.example .env
-npm install && npm run cms:install
-
-# Start PostgreSQL (Docker required), migrate, seed
-npm run db:setup
-
-# Terminal 1 — API
-npm run dev
-
-# Terminal 2 — CMS
-npm run cms:dev
-
-# Terminal 3 — Display desktop app (Electron)
+cp server/.env.example server/.env
+npm run server:install
+npm run cms:install
 npm run display:install
-npm run display:dev
+
+npm run db:setup     # Postgres, migrate, seed
+npm run dev          # API on http://localhost:3000
+npm run cms:dev      # CMS on http://localhost:5173
+npm run display:dev  # Electron Display app
 ```
 
-- API: `http://localhost:3000/api`
-- Docs: `http://localhost:3000/api/docs`
-- CMS: `http://localhost:5173` — **Admin login only**
-  - `dm@example.com` / `password123` (DM)
-  - `admin@example.com` / `password123` (Admin)
-  - `super@example.com` / `password123` (Super Admin)
-- Display: **Electron desktop app** (Windows / macOS / Linux) — see `display/README.md`
+Admin login: `dm@example.com` / `password123`
 
-### Display App (Electron desktop)
-
-Native multi-screen client — **not a website**. **Home → Create Room / Enter Room**. Create selects a **script** (Campaign), then enter detects screen IDs, registers them over Socket.IO, and applies `material:play` assignments with process verification (`display:ack` / `display:verify`).
-
-```bash
-npm run display:install
-npm run display:dev        # launches Electron desktop app
-npm run display:pack       # unpackaged build for current OS
-npm run display:dist       # platform installers (AppImage/deb, exe, dmg)
-npm run display:test       # routing/verification self-test
-```### Database not reachable (`localhost:5432`)
-
-Prisma needs Postgres running. With Docker:
-
-```bash
-npm run db:up                 # docker compose up -d
-npx prisma migrate deploy
-npm run db:seed
-```
-
-Without Docker, install Postgres 16 locally and create database `dnd_app` with user/password matching `DATABASE_URL` in `.env`.
-
-### `Unknown argument displayName` (schema mismatch)
-
-Your code is new but the Prisma client/DB is still the old schema. Reset and regenerate:
-
-```bash
-git checkout cursor/dnd-cms-dda5
-git pull origin cursor/dnd-cms-dda5
-npm install
-npm run db:fresh    # wipe Docker DB volume, generate, migrate, seed
-# restart API: npm run dev
-```
-
-Login: `dm@example.com` / `password123`
-
-Check connectivity:
-
-```bash
-npm run db:tables
-```
-
-## Data management API
-
-| Resource | Base path | Methods |
-|----------|-----------|---------|
-| Admin overview / SQL tables | `/api/admin/overview`, `/api/admin/tables` | GET |
-| User | `/api/auth/users` (+ `/register`, `/login`, `/me`) | CRUD |
-| Room | `/api/rooms` | CRUD |
-| Campaign | `/api/campaigns` | CRUD |
-| Character | `/api/characters` | CRUD |
-| Tag | `/api/tags` | CRUD |
-| Material | `/api/materials` | CRUD |
-| Combination | `/api/combinations` | CRUD |
-| Upload | `/api/uploads/image` | POST |
-
-CRUD = `GET /`, `POST /`, `GET /:id`, `PATCH /:id`, `DELETE /:id`.
-
-### Material example (multipart file upload)
-
-```bash
-curl -X POST http://localhost:3000/api/materials \
-  -H "Authorization: Bearer <JWT>" \
-  -F "type=IMAGE" \
-  -F "name=Tavern Background" \
-  -F "campaignIds=[\"campaign_id\"]" \
-  -F "tagIds=[\"tag_id\"]" \
-  -F "file=@./tavern.png"
-```
-
-In the CMS Materials page, choose a file with the upload control (no URL needed).
-
-### Character example (multipart illustration upload)
-
-```bash
-curl -X POST http://localhost:3000/api/characters \
-  -H "Authorization: Bearer <JWT>" \
-  -F "name=Thorin" \
-  -F "userId=<user_id>" \
-  -F "file=@./thorin.png"
-```
-
-Illustration is optional. In the CMS Characters page, pick an image file (JPEG/PNG/WebP/GIF).
-
-### Combination example
-
-```json
-{
-  "name": "Tavern Ambience Pack",
-  "mainMaterialId": "material_image_id",
-  "connectMaterialIds": ["material_sound_id", "material_effect_id"]
-}
-```
-
-## Socket.IO
-
-```js
-import { io } from "socket.io-client";
-const socket = io("http://localhost:3000", { auth: { token: "<JWT>" } });
-socket.emit("room:join", { roomId }, console.log);
-socket.emit("dice:roll", { roomId, expression: "2d6+3" }, console.log);
-socket.emit("material:play", { roomId, materialId }, console.log);
-```
-
-## CMS (data management UI)
-
-> The CMS lives on branch `cursor/dnd-cms-dda5` (not `main` yet).
-
-```bash
-git fetch origin
-git checkout cursor/dnd-cms-dda5
-npm install
-npm install --prefix cms
-
-npm run db:seed
-npm run dev          # API on :3000  (separate terminal — required)
-npm run cms:dev      # CMS on :5173
-```
-
-Open `http://localhost:5173` and sign in with `dm@example.com` / `password123`.
-
-If you see `Missing script: "cms:dev"`, you are on the wrong branch — run `git checkout cursor/dnd-cms-dda5`.
-
-If login fails with a JSON/API error, start the backend first (`npm run dev` on port 3000). The CMS proxies `/api` to that server.
-
-The CMS provides dashboard counts, full CRUD for Rooms / Campaigns / Characters / Tags / Materials / Combinations, user profile editing, and SQL table inspection.
+Details: [server/README.md](server/README.md), [display/README.md](display/README.md).

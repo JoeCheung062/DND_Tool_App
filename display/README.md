@@ -14,7 +14,7 @@ Built with **Electron** for Windows, macOS, and Linux.
 
 ## Run the desktop app
 
-API must be running (`npm run dev` from repo root) with Postgres.
+API must be running (`npm run dev` from the repo root, which starts `server/`) with Postgres.
 
 ```bash
 # from repo root

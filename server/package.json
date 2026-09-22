@@ -1,0 +1,80 @@
+{
+  "name": "dnd-server",
+  "version": "1.0.0",
+  "description": "DND API server — Express, Prisma, JWT, Socket.IO, Zod, OpenAPI",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:fresh": "docker compose down -v && docker compose up -d && npx prisma generate && npx prisma migrate deploy && npm run db:seed",
+    "db:studio": "prisma studio",
+    "db:tables": "node scripts/list-tables.mjs",
+    "db:psql": "psql \"$DATABASE_URL\"",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:setup": "docker compose up -d && npx prisma generate && npx prisma migrate deploy && npm run db:seed",
+    "typecheck": "tsc --noEmit",
+    "test:dice": "tsx src/utils/dice.selftest.ts",
+    "test:crud": "node scripts/crud-smoke.mjs",
+    "test:display-socket": "node scripts/display-socket-smoke.mjs"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JoeCheung062/DND_APP.git"
+  },
+  "keywords": [
+    "dnd",
+    "express",
+    "prisma",
+    "socket.io",
+    "jwt"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JoeCheung062/DND_APP/issues"
+  },
+  "homepage": "https://github.com/JoeCheung062/DND_APP#readme",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.787.0",
+    "@prisma/client": "^6.16.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.0",
+    "pg": "^8.16.0",
+    "socket.io": "^4.8.1",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/morgan": "^1.9.9",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.14.0",
+    "@types/pg": "^8.15.0",
+    "@types/swagger-ui-express": "^4.1.8",
+    "nodemon": "^3.1.9",
+    "prisma": "^6.16.0",
+    "socket.io-client": "^4.8.3",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}
