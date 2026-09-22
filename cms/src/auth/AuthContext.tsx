@@ -9,10 +9,10 @@ import {
 } from "react";
 import { getToken, setToken } from "../api/client";
 import { authApi } from "../api/resources";
-import type { User } from "../api/types";
+import type { Admin } from "../api/types";
 
 type AuthState = {
-  user: User | null;
+  admin: Admin | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -22,21 +22,21 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [admin, setAdmin] = useState<Admin | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
-      setUser(null);
+      setAdmin(null);
       setLoading(false);
       return;
     }
     try {
       const me = await authApi.me();
-      setUser(me);
+      setAdmin(me);
     } catch {
       setToken(null);
-      setUser(null);
+      setAdmin(null);
     } finally {
       setLoading(false);
     }
@@ -49,17 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const result = await authApi.login(email, password);
     setToken(result.token);
-    setUser(result.user);
+    setAdmin(result.admin);
   }, []);
 
   const logout = useCallback(() => {
     setToken(null);
-    setUser(null);
+    setAdmin(null);
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, login, logout, refresh }),
-    [user, loading, login, logout, refresh]
+    () => ({ admin, loading, login, logout, refresh }),
+    [admin, loading, login, logout, refresh]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

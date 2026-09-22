@@ -10,11 +10,12 @@ const links = [
   { to: "/materials", label: "Materials" },
   { to: "/combinations", label: "Combinations" },
   { to: "/users", label: "Users" },
+  { to: "/admins", label: "Admins" },
   { to: "/sql", label: "SQL Tables" },
 ];
 
 export function Layout() {
-  const { user, logout } = useAuth();
+  const { admin, logout } = useAuth();
 
   return (
     <div className="shell">
@@ -39,8 +40,10 @@ export function Layout() {
         </nav>
         <div className="sidebar-foot">
           <div className="user-chip">
-            <strong>{user?.displayName || user?.username}</strong>
-            <span>{user?.email}</span>
+            <strong>{admin?.displayName || admin?.username}</strong>
+            <span>
+              {admin?.role?.replace("_", " ")} · {admin?.email}
+            </span>
           </div>
           <button type="button" className="btn ghost" onClick={logout}>
             Sign out

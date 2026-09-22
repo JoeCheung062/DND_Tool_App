@@ -56,21 +56,25 @@ export function CharactersPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!userId) {
+      setError("Owner (user) is required");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const payload = {
-        name: name.trim(),
-        illustration: illustration.trim() || undefined,
-        userId: userId || undefined,
-      };
       if (editing) {
         await charactersApi.update(editing.id, {
-          ...payload,
+          name: name.trim(),
           illustration: illustration.trim() || null,
+          userId,
         });
       } else {
-        await charactersApi.create(payload);
+        await charactersApi.create({
+          name: name.trim(),
+          illustration: illustration.trim() || undefined,
+          userId,
+        });
       }
       setOpen(false);
       await load();

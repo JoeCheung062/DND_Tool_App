@@ -12,6 +12,7 @@ const links = [
   { to: "/materials", key: "materials", label: "Materials" },
   { to: "/combinations", key: "combinations", label: "Combinations" },
   { to: "/users", key: "users", label: "Users" },
+  { to: "/admins", key: "admins", label: "Admins" },
 ] as const;
 
 export function DashboardPage() {

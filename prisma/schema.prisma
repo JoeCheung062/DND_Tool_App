@@ -7,10 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  DM
+/// CMS / system admin roles (login accounts)
+enum AdminRole {
+  SUPER_ADMIN
   ADMIN
+  DM
 }
 
 /// Material Slide type: Image / Effect / Sound
@@ -37,33 +38,48 @@ model Campaign {
   materialPresets MaterialCampaignPreset[]
 }
 
+/// Player / table users — no login credentials (cannot sign in)
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  username     String   @unique
-  passwordHash String
-  role         Role     @default(USER)
+  id          String   @id @default(cuid())
+  email       String   @unique
+  username    String   @unique
 
   /// User Profile
+  displayName String?
+  avatarUrl   String?
+  bio         String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  characters  Character[]
+}
+
+/// Admin login accounts — Super Admin / Admin / DM
+model Admin {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  username     String    @unique
+  passwordHash String
+  role         AdminRole @default(ADMIN)
+
   displayName  String?
   avatarUrl    String?
   bio          String?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  characters   Character[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model Character {
-  id            String   @id @default(cuid())
-  name          String
+  id           String   @id @default(cuid())
+  name         String
   /// Character illustration (image URL / path)
-  illustration  String?
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  illustration String?
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([userId])
 }

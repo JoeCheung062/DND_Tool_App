@@ -41,7 +41,8 @@ All core tables support full **CRUD**:
 |-------|--------|
 | **Room** | `id`, `name` |
 | **Campaign** | `id`, `name` |
-| **User** | `id`, profile (`displayName`, `avatarUrl`, `bio`) + auth |
+| **User** | `id`, profile (`displayName`, `avatarUrl`, `bio`) — **no login** |
+| **Admin** | `id`, email, password, role (`SUPER_ADMIN` / `ADMIN` / `DM`) — **CMS login** |
 | **Character** | `id`, `name`, `illustration`, `userId` |
 | **Tag** | `id`, `name` |
 | **Material** (Slide) | `id`, `type` (`IMAGE`/`EFFECT`/`SOUND`), `name`, `assetUrl`, campaign presets (M2M), tags (M2M) |
@@ -68,7 +69,10 @@ npm run cms:dev
 
 - API: `http://localhost:3000/api`
 - Docs: `http://localhost:3000/api/docs`
-- CMS: `http://localhost:5173` (`dm@example.com` / `password123`)
+- CMS: `http://localhost:5173` — **Admin login only**
+  - `dm@example.com` / `password123` (DM)
+  - `admin@example.com` / `password123` (Admin)
+  - `super@example.com` / `password123` (Super Admin)
 
 ### Database not reachable (`localhost:5432`)
 

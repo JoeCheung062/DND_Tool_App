@@ -1,8 +1,13 @@
-import type { Role } from "@prisma/client";
+import type { AdminRole } from "@prisma/client";
 
-export type AuthUser = {
+/** Authenticated CMS/admin principal (never a User) */
+export type AuthAdmin = {
   id: string;
   email: string;
   username: string;
-  role: Role;
+  role: AdminRole;
+  accountType: "admin";
 };
+
+/** @deprecated use AuthAdmin */
+export type AuthUser = AuthAdmin;

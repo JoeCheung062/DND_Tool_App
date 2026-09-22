@@ -4,10 +4,10 @@ import { env } from "../config/env.js";
 import { prisma } from "../config/prisma.js";
 import { verifyToken } from "../utils/jwt.js";
 import { rollDice } from "../utils/dice.js";
-import type { AuthUser } from "../types/auth.js";
+import type { AuthAdmin } from "../types/auth.js";
 
 type SocketData = {
-  user: AuthUser;
+  user: AuthAdmin;
 };
 
 export function createSocketServer(httpServer: HttpServer) {

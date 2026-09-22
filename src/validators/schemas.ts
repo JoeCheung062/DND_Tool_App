@@ -4,45 +4,55 @@ export const idParamSchema = z.object({
   id: z.string().min(1),
 });
 
-// ── Auth / User Profile ──────────────────────────────────────────
-export const registerSchema = z.object({
-  email: z.string().email(),
-  username: z
-    .string()
-    .min(3)
-    .max(32)
-    .regex(/^[a-zA-Z0-9_]+$/, "Username must be alphanumeric/underscore"),
-  password: z.string().min(8).max(128),
-  displayName: z.string().min(1).max(100).optional(),
-  avatarUrl: z.string().url().optional(),
-  bio: z.string().max(1000).optional(),
-});
+export const adminRoleSchema = z.enum(["SUPER_ADMIN", "ADMIN", "DM"]);
 
+const usernameSchema = z
+  .string()
+  .min(3)
+  .max(32)
+  .regex(/^[a-zA-Z0-9_]+$/, "Username must be alphanumeric/underscore");
+
+// ── Admin auth (login only — Users cannot sign in) ───────────────
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
 
-export const updateUserProfileSchema = z.object({
-  displayName: z.string().min(1).max(100).nullable().optional(),
-  avatarUrl: z.string().url().nullable().optional(),
-  bio: z.string().max(1000).nullable().optional(),
-  username: z
-    .string()
-    .min(3)
-    .max(32)
-    .regex(/^[a-zA-Z0-9_]+$/)
-    .optional(),
-});
-
-export const createUserSchema = z.object({
+export const createAdminSchema = z.object({
   email: z.string().email(),
-  username: z.string().min(3).max(32),
+  username: usernameSchema,
   password: z.string().min(8).max(128),
+  role: adminRoleSchema.default("ADMIN"),
   displayName: z.string().min(1).max(100).optional(),
   avatarUrl: z.string().url().optional(),
   bio: z.string().max(1000).optional(),
-  role: z.enum(["USER", "DM", "ADMIN"]).optional(),
+});
+
+export const updateAdminSchema = z.object({
+  email: z.string().email().optional(),
+  username: usernameSchema.optional(),
+  password: z.string().min(8).max(128).optional(),
+  role: adminRoleSchema.optional(),
+  displayName: z.string().min(1).max(100).nullable().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
+  bio: z.string().max(1000).nullable().optional(),
+});
+
+// ── User profiles (no password / no login) ───────────────────────
+export const createUserSchema = z.object({
+  email: z.string().email(),
+  username: usernameSchema,
+  displayName: z.string().min(1).max(100).optional(),
+  avatarUrl: z.string().url().optional(),
+  bio: z.string().max(1000).optional(),
+});
+
+export const updateUserProfileSchema = z.object({
+  email: z.string().email().optional(),
+  displayName: z.string().min(1).max(100).nullable().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
+  bio: z.string().max(1000).nullable().optional(),
+  username: usernameSchema.optional(),
 });
 
 // ── Room ─────────────────────────────────────────────────────────
@@ -67,7 +77,7 @@ export const updateCampaignSchema = z.object({
 export const createCharacterSchema = z.object({
   name: z.string().min(1).max(100),
   illustration: z.string().url().optional(),
-  userId: z.string().min(1).optional(), // defaults to current user when omitted
+  userId: z.string().min(1),
 });
 
 export const updateCharacterSchema = z.object({
@@ -92,9 +102,7 @@ export const createMaterialSchema = z.object({
   type: materialTypeSchema,
   name: z.string().min(1).max(200),
   assetUrl: z.string().min(1),
-  /** Presets In Campaign — multiple campaign IDs */
   campaignIds: z.array(z.string().min(1)).default([]),
-  /** Tags — multiple tag IDs */
   tagIds: z.array(z.string().min(1)).default([]),
 });
 
@@ -109,9 +117,7 @@ export const updateMaterialSchema = z.object({
 // ── Combination ──────────────────────────────────────────────────
 export const createCombinationSchema = z.object({
   name: z.string().min(1).max(200),
-  /** Main material (single) */
   mainMaterialId: z.string().min(1),
-  /** Connect materials — multiple material IDs */
   connectMaterialIds: z.array(z.string().min(1)).default([]),
 });
 
@@ -121,8 +127,9 @@ export const updateCombinationSchema = z.object({
   connectMaterialIds: z.array(z.string().min(1)).optional(),
 });
 
-export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type CreateAdminInput = z.infer<typeof createAdminSchema>;
+export type UpdateAdminInput = z.infer<typeof updateAdminSchema>;
 export type UpdateUserProfileInput = z.infer<typeof updateUserProfileSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type CreateRoomInput = z.infer<typeof createRoomSchema>;

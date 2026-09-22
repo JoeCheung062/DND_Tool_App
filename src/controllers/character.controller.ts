@@ -15,10 +15,7 @@ export const getById = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const create = asyncHandler(async (req: Request, res: Response) => {
-  const character = await characterService.createCharacter(
-    req.body,
-    req.user!.id
-  );
+  const character = await characterService.createCharacter(req.body);
   res.status(201).json({ success: true, data: character });
 });
 

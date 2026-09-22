@@ -1,28 +1,33 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
-import type { AuthUser } from "../types/auth.js";
+import type { AuthAdmin } from "../types/auth.js";
 
-type JwtPayload = AuthUser & { iat?: number; exp?: number };
+type JwtPayload = AuthAdmin & { iat?: number; exp?: number };
 
-export function signToken(user: AuthUser): string {
+export function signToken(admin: AuthAdmin): string {
   return jwt.sign(
     {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
+      id: admin.id,
+      email: admin.email,
+      username: admin.username,
+      role: admin.role,
+      accountType: "admin" as const,
     },
     env.JWT_SECRET,
     { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"] }
   );
 }
 
-export function verifyToken(token: string): AuthUser {
+export function verifyToken(token: string): AuthAdmin {
   const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+  if (payload.accountType && payload.accountType !== "admin") {
+    throw new Error("User accounts cannot sign in");
+  }
   return {
     id: payload.id,
     email: payload.email,
     username: payload.username,
     role: payload.role,
+    accountType: "admin",
   };
 }

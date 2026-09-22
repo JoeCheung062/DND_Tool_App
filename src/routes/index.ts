@@ -1,5 +1,6 @@
 import { Router } from "express";
 import adminRoutes from "./admin.routes.js";
+import adminsRoutes from "./admins.routes.js";
 import authRoutes from "./auth.routes.js";
 import campaignRoutes from "./campaign.routes.js";
 import characterRoutes from "./character.routes.js";
@@ -23,6 +24,7 @@ router.get("/health", (_req, res) => {
 });
 
 router.use("/admin", adminRoutes);
+router.use("/admins", adminsRoutes);
 router.use("/auth", authRoutes);
 router.use("/rooms", roomRoutes);
 router.use("/campaigns", campaignRoutes);

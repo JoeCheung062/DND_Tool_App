@@ -1,16 +1,28 @@
-export type Role = "USER" | "DM" | "ADMIN";
-export type MaterialType = "IMAGE" | "EFFECT" | "SOUND";
+export type AdminRole = "SUPER_ADMIN" | "ADMIN" | "DM";
 
-export type User = {
+export type Admin = {
   id: string;
   email: string;
   username: string;
-  role: Role;
+  role: AdminRole;
   displayName: string | null;
   avatarUrl: string | null;
   bio: string | null;
   createdAt?: string;
 };
+
+/** Player profile — cannot log in */
+export type User = {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  createdAt?: string;
+};
+
+export type MaterialType = "IMAGE" | "EFFECT" | "SOUND";
 
 export type Room = {
   id: string;
@@ -63,6 +75,7 @@ export type Overview = {
     rooms: number;
     campaigns: number;
     users: number;
+    admins: number;
     characters: number;
     tags: number;
     materials: number;

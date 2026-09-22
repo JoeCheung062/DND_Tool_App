@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
+import type { AdminRole } from "@prisma/client";
 import { verifyToken } from "../utils/jwt.js";
 import { AppError } from "../utils/AppError.js";
-import type { Role } from "@prisma/client";
 
 export function authenticate(req: Request, _res: Response, next: NextFunction) {
   const header = req.headers.authorization;
@@ -32,14 +32,17 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   next();
 }
 
-export function requireRoles(...roles: Role[]) {
+export function requireAdminRoles(...roles: AdminRole[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new AppError(401, "Authentication required"));
     }
     if (!roles.includes(req.user.role)) {
-      return next(new AppError(403, "Insufficient permissions"));
+      return next(new AppError(403, "Insufficient admin permissions"));
     }
     next();
   };
 }
+
+/** @deprecated use requireAdminRoles */
+export const requireRoles = requireAdminRoles;

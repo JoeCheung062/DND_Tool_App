@@ -17,28 +17,48 @@ async function main() {
   await prisma.room.deleteMany();
   await prisma.campaign.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.admin.deleteMany();
 
   const passwordHash = await bcrypt.hash("password123", 12);
 
-  const dm = await prisma.user.create({
-    data: {
-      email: "dm@example.com",
-      username: "dungeon_master",
-      passwordHash,
-      displayName: "Dungeon Master",
-      bio: "Runs the table",
-      role: "DM",
-    },
-  });
+  const [superAdmin, admin, dm] = await Promise.all([
+    prisma.admin.create({
+      data: {
+        email: "super@example.com",
+        username: "super_admin",
+        passwordHash,
+        role: "SUPER_ADMIN",
+        displayName: "Super Admin",
+        bio: "Full system access",
+      },
+    }),
+    prisma.admin.create({
+      data: {
+        email: "admin@example.com",
+        username: "admin",
+        passwordHash,
+        role: "ADMIN",
+        displayName: "Admin",
+      },
+    }),
+    prisma.admin.create({
+      data: {
+        email: "dm@example.com",
+        username: "dungeon_master",
+        passwordHash,
+        role: "DM",
+        displayName: "Dungeon Master",
+        bio: "Runs the table",
+      },
+    }),
+  ]);
 
   const player = await prisma.user.create({
     data: {
       email: "player@example.com",
       username: "adventurer",
-      passwordHash,
       displayName: "Aria",
       bio: "Loves rolling nat 20s",
-      role: "USER",
     },
   });
 
@@ -114,8 +134,14 @@ async function main() {
 
   console.log("Seed complete:");
   console.log({
-    users: [dm.email, player.email],
+    admins: [
+      { email: superAdmin.email, role: superAdmin.role },
+      { email: admin.email, role: admin.role },
+      { email: dm.email, role: dm.role },
+    ],
     password: "password123",
+    users: [player.email],
+    note: "Only Admin accounts can sign in to the CMS",
     room: room.name,
     campaigns: [campaign1.name, campaign2.name],
     tags: [tagAmbience.name, tagCombat.name, tagNpc.name],

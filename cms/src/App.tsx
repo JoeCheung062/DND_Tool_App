@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
 import { LoadingState } from "./components/ui";
+import { AdminsPage } from "./pages/AdminsPage";
 import { CampaignsPage } from "./pages/CampaignsPage";
 import { CharactersPage } from "./pages/CharactersPage";
 import { CombinationsPage } from "./pages/CombinationsPage";
@@ -15,9 +16,9 @@ import { TagsPage } from "./pages/TagsPage";
 import { UsersPage } from "./pages/UsersPage";
 
 function Protected({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
+  const { admin, loading } = useAuth();
   if (loading) return <LoadingState />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!admin) return <Navigate to="/login" replace />;
   return children;
 }
 
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="materials" element={<MaterialsPage />} />
         <Route path="combinations" element={<CombinationsPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="admins" element={<AdminsPage />} />
         <Route path="sql" element={<SqlTablesPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

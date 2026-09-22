@@ -30,19 +30,15 @@ export async function getCharacter(id: string) {
   return character;
 }
 
-export async function createCharacter(
-  input: CreateCharacterInput,
-  fallbackUserId: string
-) {
-  const userId = input.userId ?? fallbackUserId;
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+export async function createCharacter(input: CreateCharacterInput) {
+  const user = await prisma.user.findUnique({ where: { id: input.userId } });
   if (!user) throw new AppError(404, "User not found");
 
   return prisma.character.create({
     data: {
       name: input.name,
       illustration: input.illustration,
-      userId,
+      userId: input.userId,
     },
     include: {
       user: {

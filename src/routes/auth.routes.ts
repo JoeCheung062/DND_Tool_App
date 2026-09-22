@@ -6,47 +6,44 @@ import {
   createUserSchema,
   idParamSchema,
   loginSchema,
-  registerSchema,
   updateUserProfileSchema,
 } from "../validators/schemas.js";
 
 const router = Router();
 
-router.post(
-  "/register",
-  validate({ body: registerSchema }),
-  authController.register
-);
-
+/** Admin-only login. User accounts are rejected. */
 router.post("/login", validate({ body: loginSchema }), authController.login);
+
+/** Disabled — kept so clients get a clear 403 instead of 404 */
+router.post("/register", authController.register);
 
 router.get("/me", authenticate, authController.me);
 
-/** User CRUD */
-router.get("/users", authenticate, authController.list);
+/** User CRUD (profiles only — no login credentials) */
+router.get("/users", authenticate, authController.listUsers);
 router.post(
   "/users",
   authenticate,
   validate({ body: createUserSchema }),
-  authController.create
+  authController.createUser
 );
 router.get(
   "/users/:id",
   authenticate,
   validate({ params: idParamSchema }),
-  authController.getById
+  authController.getUser
 );
 router.patch(
   "/users/:id",
   authenticate,
   validate({ params: idParamSchema, body: updateUserProfileSchema }),
-  authController.update
+  authController.updateUser
 );
 router.delete(
   "/users/:id",
   authenticate,
   validate({ params: idParamSchema }),
-  authController.remove
+  authController.removeUser
 );
 
 export default router;

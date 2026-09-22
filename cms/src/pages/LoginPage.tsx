@@ -4,13 +4,13 @@ import { useAuth } from "../auth/AuthContext";
 import { ErrorBanner, Field } from "../components/ui";
 
 export function LoginPage() {
-  const { user, loading, login } = useAuth();
+  const { admin, loading, login } = useAuth();
   const [email, setEmail] = useState("dm@example.com");
   const [password, setPassword] = useState("password123");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (!loading && user) return <Navigate to="/" replace />;
+  if (!loading && admin) return <Navigate to="/" replace />;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -32,7 +32,7 @@ export function LoginPage() {
           <span className="brand-mark">DND</span>
           <span className="brand-text">CMS</span>
         </div>
-        <p className="lede">Manage rooms, campaigns, materials, and combinations.</p>
+        <p className="lede">Admin sign-in only (Super Admin / Admin / DM).</p>
         <ErrorBanner message={error} />
         <p className="lede" style={{ fontSize: "0.85rem", marginTop: "-0.6rem" }}>
           API must be running: <code>npm run dev</code> on port 3000

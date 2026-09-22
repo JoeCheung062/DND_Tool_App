@@ -1,5 +1,7 @@
 import { api } from "./client";
 import type {
+  Admin,
+  AdminRole,
   Campaign,
   Character,
   Combination,
@@ -15,11 +17,11 @@ import type {
 
 export const authApi = {
   login: (email: string, password: string) =>
-    api<{ user: User; token: string }>("/auth/login", {
+    api<{ admin: Admin; token: string }>("/auth/login", {
       method: "POST",
       json: { email, password },
     }),
-  me: () => api<User>("/auth/me"),
+  me: () => api<Admin>("/auth/me"),
 };
 
 export const adminApi = {
@@ -27,6 +29,33 @@ export const adminApi = {
   tables: () => api<SqlTable[]>("/admin/tables"),
   describe: (table: string) =>
     api<{ table: string; columns: SqlColumn[] }>(`/admin/tables/${table}`),
+};
+
+export const adminsApi = {
+  list: () => api<Admin[]>("/admins"),
+  create: (body: {
+    email: string;
+    username: string;
+    password: string;
+    role: AdminRole;
+    displayName?: string;
+    avatarUrl?: string;
+    bio?: string;
+  }) => api<Admin>("/admins", { method: "POST", json: body }),
+  update: (
+    id: string,
+    body: {
+      email?: string;
+      username?: string;
+      password?: string;
+      role?: AdminRole;
+      displayName?: string | null;
+      avatarUrl?: string | null;
+      bio?: string | null;
+    }
+  ) => api<Admin>(`/admins/${id}`, { method: "PATCH", json: body }),
+  remove: (id: string) =>
+    api<{ id: string }>(`/admins/${id}`, { method: "DELETE" }),
 };
 
 export const roomsApi = {
@@ -50,7 +79,7 @@ export const campaignsApi = {
 
 export const charactersApi = {
   list: () => api<Character[]>("/characters"),
-  create: (body: { name: string; illustration?: string; userId?: string }) =>
+  create: (body: { name: string; illustration?: string; userId: string }) =>
     api<Character>("/characters", { method: "POST", json: body }),
   update: (
     id: string,
@@ -113,9 +142,17 @@ export const combinationsApi = {
 
 export const usersApi = {
   list: () => api<User[]>("/auth/users"),
+  create: (body: {
+    email: string;
+    username: string;
+    displayName?: string;
+    avatarUrl?: string;
+    bio?: string;
+  }) => api<User>("/auth/users", { method: "POST", json: body }),
   update: (
     id: string,
     body: {
+      email?: string;
       displayName?: string | null;
       avatarUrl?: string | null;
       bio?: string | null;
