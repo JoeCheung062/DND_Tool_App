@@ -40,6 +40,20 @@ export function errorHandler(
     }
   }
 
+  // Prisma unreachable DB / init errors
+  if (
+    err &&
+    typeof err === "object" &&
+    "name" in err &&
+    (err as { name?: string }).name === "PrismaClientInitializationError"
+  ) {
+    return res.status(503).json({
+      success: false,
+      message:
+        "Cannot reach PostgreSQL at localhost:5432. Start it with `npm run db:up` (Docker), then `npx prisma migrate deploy` and `npm run db:seed`.",
+    });
+  }
+
   console.error(err);
   return res.status(500).json({
     success: false,
