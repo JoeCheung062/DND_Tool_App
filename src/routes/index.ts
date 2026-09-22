@@ -1,6 +1,11 @@
 import { Router } from "express";
 import authRoutes from "./auth.routes.js";
 import campaignRoutes from "./campaign.routes.js";
+import characterRoutes from "./character.routes.js";
+import combinationRoutes from "./combination.routes.js";
+import materialRoutes from "./material.routes.js";
+import roomRoutes from "./room.routes.js";
+import tagRoutes from "./tag.routes.js";
 import uploadRoutes from "./upload.routes.js";
 
 const router = Router();
@@ -17,7 +22,12 @@ router.get("/health", (_req, res) => {
 });
 
 router.use("/auth", authRoutes);
+router.use("/rooms", roomRoutes);
 router.use("/campaigns", campaignRoutes);
+router.use("/characters", characterRoutes);
+router.use("/tags", tagRoutes);
+router.use("/materials", materialRoutes);
+router.use("/combinations", combinationRoutes);
 router.use("/uploads", uploadRoutes);
 
 export default router;

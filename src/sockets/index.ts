@@ -49,87 +49,71 @@ export function createSocketServer(httpServer: HttpServer) {
       socketId: socket.id,
     });
 
-    socket.on("campaign:join", async (payload: { campaignId?: string }, ack?) => {
+    socket.on("room:join", async (payload: { roomId?: string }, ack?) => {
       try {
-        const campaignId = payload?.campaignId;
-        if (!campaignId) throw new Error("campaignId is required");
+        const roomId = payload?.roomId;
+        if (!roomId) throw new Error("roomId is required");
 
-        const allowed = await prisma.campaign.findFirst({
-          where: {
-            id: campaignId,
-            OR: [
-              { ownerId: user.id },
-              { members: { some: { userId: user.id } } },
-            ],
-          },
+        const room = await prisma.room.findUnique({
+          where: { id: roomId },
           select: { id: true, name: true },
         });
+        if (!room) throw new Error("Room not found");
 
-        if (!allowed) {
-          throw new Error("Not a member of this campaign");
-        }
-
-        await socket.join(`campaign:${campaignId}`);
-        socket.to(`campaign:${campaignId}`).emit("campaign:presence", {
+        await socket.join(`room:${roomId}`);
+        socket.to(`room:${roomId}`).emit("room:presence", {
           type: "join",
           user: { id: user.id, username: user.username },
-          campaignId,
+          roomId,
         });
 
-        ack?.({ ok: true, campaignId, name: allowed.name });
+        ack?.({ ok: true, roomId, name: room.name });
       } catch (err) {
         ack?.({ ok: false, error: err instanceof Error ? err.message : "join failed" });
       }
     });
 
-    socket.on("campaign:leave", (payload: { campaignId?: string }, ack?) => {
-      const campaignId = payload?.campaignId;
-      if (!campaignId) {
-        ack?.({ ok: false, error: "campaignId is required" });
+    socket.on("room:leave", (payload: { roomId?: string }, ack?) => {
+      const roomId = payload?.roomId;
+      if (!roomId) {
+        ack?.({ ok: false, error: "roomId is required" });
         return;
       }
 
-      socket.leave(`campaign:${campaignId}`);
-      socket.to(`campaign:${campaignId}`).emit("campaign:presence", {
+      socket.leave(`room:${roomId}`);
+      socket.to(`room:${roomId}`).emit("room:presence", {
         type: "leave",
         user: { id: user.id, username: user.username },
-        campaignId,
+        roomId,
       });
       ack?.({ ok: true });
     });
 
     socket.on(
       "chat:message",
-      async (
-        payload: { campaignId?: string; content?: string },
-        ack?
-      ) => {
+      (payload: { roomId?: string; content?: string }, ack?) => {
         try {
-          const { campaignId, content } = payload ?? {};
-          if (!campaignId || !content?.trim()) {
-            throw new Error("campaignId and content are required");
+          const { roomId, content } = payload ?? {};
+          if (!roomId || !content?.trim()) {
+            throw new Error("roomId and content are required");
           }
           if (content.length > 2000) {
             throw new Error("Message too long");
           }
 
-          const room = `campaign:${campaignId}`;
-          if (!socket.rooms.has(room)) {
-            throw new Error("Join the campaign room first");
+          const roomKey = `room:${roomId}`;
+          if (!socket.rooms.has(roomKey)) {
+            throw new Error("Join the room first");
           }
 
-          const message = await prisma.message.create({
-            data: {
-              campaignId,
-              senderId: user.id,
-              content: content.trim(),
-            },
-            include: {
-              sender: { select: { id: true, username: true, avatarUrl: true } },
-            },
-          });
+          const message = {
+            roomId,
+            content: content.trim(),
+            sender: { id: user.id, username: user.username },
+            at: new Date().toISOString(),
+          };
 
-          io.to(room).emit("chat:message", message);
+          io.to(roomKey).emit("chat:message", message);
           ack?.({ ok: true, message });
         } catch (err) {
           ack?.({
@@ -143,30 +127,30 @@ export function createSocketServer(httpServer: HttpServer) {
     socket.on(
       "dice:roll",
       (
-        payload: { campaignId?: string; expression?: string; reason?: string },
+        payload: { roomId?: string; expression?: string; reason?: string },
         ack?
       ) => {
         try {
-          const { campaignId, expression, reason } = payload ?? {};
-          if (!campaignId || !expression) {
-            throw new Error("campaignId and expression are required");
+          const { roomId, expression, reason } = payload ?? {};
+          if (!roomId || !expression) {
+            throw new Error("roomId and expression are required");
           }
 
-          const room = `campaign:${campaignId}`;
-          if (!socket.rooms.has(room)) {
-            throw new Error("Join the campaign room first");
+          const roomKey = `room:${roomId}`;
+          if (!socket.rooms.has(roomKey)) {
+            throw new Error("Join the room first");
           }
 
           const result = rollDice(expression);
           const event = {
             ...result,
             reason,
-            campaignId,
+            roomId,
             roller: { id: user.id, username: user.username },
             at: new Date().toISOString(),
           };
 
-          io.to(room).emit("dice:result", event);
+          io.to(roomKey).emit("dice:result", event);
           ack?.({ ok: true, result: event });
         } catch (err) {
           ack?.({
@@ -177,36 +161,54 @@ export function createSocketServer(httpServer: HttpServer) {
       }
     );
 
-    socket.on("session:update", (payload: Record<string, unknown>, ack?) => {
-      const campaignId = payload?.campaignId as string | undefined;
-      if (!campaignId) {
-        ack?.({ ok: false, error: "campaignId is required" });
-        return;
-      }
+    socket.on(
+      "material:play",
+      (
+        payload: {
+          roomId?: string;
+          materialId?: string;
+          combinationId?: string;
+        },
+        ack?
+      ) => {
+        try {
+          const { roomId, materialId, combinationId } = payload ?? {};
+          if (!roomId) throw new Error("roomId is required");
+          if (!materialId && !combinationId) {
+            throw new Error("materialId or combinationId is required");
+          }
 
-      const room = `campaign:${campaignId}`;
-      if (!socket.rooms.has(room)) {
-        ack?.({ ok: false, error: "Join the campaign room first" });
-        return;
-      }
+          const roomKey = `room:${roomId}`;
+          if (!socket.rooms.has(roomKey)) {
+            throw new Error("Join the room first");
+          }
 
-      io.to(room).emit("session:update", {
-        ...payload,
-        by: { id: user.id, username: user.username },
-        at: new Date().toISOString(),
-      });
-      ack?.({ ok: true });
-    });
+          const event = {
+            roomId,
+            materialId,
+            combinationId,
+            by: { id: user.id, username: user.username },
+            at: new Date().toISOString(),
+          };
+
+          io.to(roomKey).emit("material:play", event);
+          ack?.({ ok: true, event });
+        } catch (err) {
+          ack?.({
+            ok: false,
+            error: err instanceof Error ? err.message : "play failed",
+          });
+        }
+      }
+    );
 
     socket.on("disconnect", () => {
-      // Presence leave is handled per-room when clients call campaign:leave.
-      // Broadcast a soft disconnect for any campaign rooms still joined.
       for (const room of socket.rooms) {
-        if (room.startsWith("campaign:")) {
-          socket.to(room).emit("campaign:presence", {
+        if (room.startsWith("room:")) {
+          socket.to(room).emit("room:presence", {
             type: "disconnect",
             user: { id: user.id, username: user.username },
-            campaignId: room.replace("campaign:", ""),
+            roomId: room.replace("room:", ""),
           });
         }
       }

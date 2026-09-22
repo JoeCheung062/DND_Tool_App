@@ -2,7 +2,24 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/AppError.js";
 import { signToken } from "../utils/jwt.js";
-import type { LoginInput, RegisterInput } from "../validators/schemas.js";
+import type {
+  CreateUserInput,
+  LoginInput,
+  RegisterInput,
+  UpdateUserProfileInput,
+} from "../validators/schemas.js";
+
+const userSelect = {
+  id: true,
+  email: true,
+  username: true,
+  role: true,
+  displayName: true,
+  avatarUrl: true,
+  bio: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 export async function registerUser(input: RegisterInput) {
   const existing = await prisma.user.findFirst({
@@ -21,15 +38,11 @@ export async function registerUser(input: RegisterInput) {
       email: input.email,
       username: input.username,
       passwordHash,
+      displayName: input.displayName ?? input.username,
+      avatarUrl: input.avatarUrl,
+      bio: input.bio,
     },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      role: true,
-      avatarUrl: true,
-      createdAt: true,
-    },
+    select: userSelect,
   });
 
   const token = signToken({
@@ -66,30 +79,81 @@ export async function loginUser(input: LoginInput) {
       email: user.email,
       username: user.username,
       role: user.role,
+      displayName: user.displayName,
       avatarUrl: user.avatarUrl,
+      bio: user.bio,
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     },
     token,
   };
 }
 
-export async function getUserProfile(userId: string) {
+export async function listUsers() {
+  return prisma.user.findMany({
+    select: userSelect,
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getUser(id: string) {
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { id },
     select: {
-      id: true,
-      email: true,
-      username: true,
-      role: true,
-      avatarUrl: true,
-      createdAt: true,
-      updatedAt: true,
+      ...userSelect,
+      characters: true,
     },
   });
+  if (!user) throw new AppError(404, "User not found");
+  return user;
+}
 
-  if (!user) {
-    throw new AppError(404, "User not found");
+export async function createUser(input: CreateUserInput) {
+  const existing = await prisma.user.findFirst({
+    where: {
+      OR: [{ email: input.email }, { username: input.username }],
+    },
+  });
+  if (existing) throw new AppError(409, "Email or username already in use");
+
+  const passwordHash = await bcrypt.hash(input.password, 12);
+  return prisma.user.create({
+    data: {
+      email: input.email,
+      username: input.username,
+      passwordHash,
+      displayName: input.displayName ?? input.username,
+      avatarUrl: input.avatarUrl,
+      bio: input.bio,
+      role: input.role ?? "USER",
+    },
+    select: userSelect,
+  });
+}
+
+export async function updateUserProfile(id: string, input: UpdateUserProfileInput) {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new AppError(404, "User not found");
+
+  if (input.username && input.username !== user.username) {
+    const taken = await prisma.user.findUnique({ where: { username: input.username } });
+    if (taken) throw new AppError(409, "Username already in use");
   }
 
-  return user;
+  return prisma.user.update({
+    where: { id },
+    data: input,
+    select: userSelect,
+  });
+}
+
+export async function deleteUser(id: string) {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new AppError(404, "User not found");
+  await prisma.user.delete({ where: { id } });
+  return { id };
+}
+
+export async function getUserProfile(userId: string) {
+  return getUser(userId);
 }

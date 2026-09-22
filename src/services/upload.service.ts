@@ -3,7 +3,6 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { env, isS3Enabled } from "../config/env.js";
-import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/AppError.js";
 
 const ALLOWED_MIME = new Set([
@@ -11,6 +10,12 @@ const ALLOWED_MIME = new Set([
   "image/png",
   "image/webp",
   "image/gif",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/ogg",
+  "audio/webm",
+  "video/mp4",
+  "video/webm",
 ]);
 
 let s3: S3Client | null = null;
@@ -87,7 +92,10 @@ export async function saveUpload(
   }
 
   if (!ALLOWED_MIME.has(file.mimetype)) {
-    throw new AppError(400, "Only JPEG, PNG, WebP, and GIF images are allowed");
+    throw new AppError(
+      400,
+      "Unsupported file type. Allowed: images, audio, and short video assets"
+    );
   }
 
   const filename = buildFilename(file.originalname);
@@ -95,19 +103,15 @@ export async function saveUpload(
     ? await storeS3(file, filename)
     : await storeLocal(file, filename);
 
-  const record = await prisma.upload.create({
-    data: {
-      filename,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
-      url: stored.url,
-      storage: stored.storage,
-      uploaderId,
-    },
-  });
-
-  return record;
+  return {
+    filename,
+    originalName: file.originalname,
+    mimeType: file.mimetype,
+    size: file.size,
+    url: stored.url,
+    storage: stored.storage,
+    uploaderId: uploaderId ?? null,
+  };
 }
 
 export function getStorageMode() {

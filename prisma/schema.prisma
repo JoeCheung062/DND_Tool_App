@@ -13,105 +13,138 @@ enum Role {
   ADMIN
 }
 
-enum CampaignStatus {
-  DRAFT
-  ACTIVE
-  ARCHIVED
+/// Material Slide type: Image / Effect / Sound
+enum MaterialType {
+  IMAGE
+  EFFECT
+  SOUND
 }
 
-model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  username     String     @unique
-  passwordHash String
-  role         Role       @default(USER)
-  avatarUrl    String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  campaigns    Campaign[] @relation("CampaignOwner")
-  memberships  CampaignMember[]
-  characters   Character[]
-  messages     Message[]
+model Room {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Campaign {
-  id          String         @id @default(cuid())
-  name        String
-  description String?
-  status      CampaignStatus @default(DRAFT)
-  coverUrl    String?
-  ownerId     String
-  owner       User           @relation("CampaignOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  members     CampaignMember[]
-  characters  Character[]
-  messages    Message[]
-  sessions    GameSession[]
+  /// Materials preset into this campaign (many-to-many)
+  materialPresets MaterialCampaignPreset[]
 }
 
-model CampaignMember {
-  id         String   @id @default(cuid())
-  campaignId String
-  userId     String
-  role       Role     @default(USER)
-  joinedAt   DateTime @default(now())
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  role         Role     @default(USER)
 
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// User Profile
+  displayName  String?
+  avatarUrl    String?
+  bio          String?
 
-  @@unique([campaignId, userId])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  characters   Character[]
 }
 
 model Character {
-  id         String   @id @default(cuid())
-  name       String
-  className  String
-  level      Int      @default(1)
-  race       String?
-  avatarUrl  String?
-  stats      Json?
-  campaignId String?
-  ownerId    String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  /// Character illustration (image URL / path)
+  illustration  String?
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  @@index([userId])
 }
 
-model GameSession {
-  id         String   @id @default(cuid())
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  materials MaterialTag[]
+}
+
+/// Material Slide — Image / Effect / Sound assets
+model Material {
+  id        String       @id @default(cuid())
+  /// IMAGE | EFFECT | SOUND
+  type      MaterialType
+  name      String
+  /// URL or path to the image / effect / sound file
+  assetUrl  String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  /// Presets In Campaign (multiple selections)
+  campaignPresets MaterialCampaignPreset[]
+  /// Tags (multiple selections)
+  tags            MaterialTag[]
+
+  /// Combinations where this is the main material
+  mainCombinations Combination[] @relation("MainMaterial")
+  /// Combinations where this is a connected material
+  connectLinks     CombinationConnect[]
+}
+
+/// Join: Material ↔ Campaign (presets, many-to-many)
+model MaterialCampaignPreset {
+  materialId String
   campaignId String
-  title      String
-  notes      String?
-  startedAt  DateTime @default(now())
-  endedAt    DateTime?
-
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
   campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-}
-
-model Message {
-  id         String   @id @default(cuid())
-  campaignId String
-  senderId   String
-  content    String
   createdAt  DateTime @default(now())
 
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  sender     User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  @@id([materialId, campaignId])
+  @@index([campaignId])
 }
 
-model Upload {
-  id         String   @id @default(cuid())
-  filename   String
-  originalName String
-  mimeType   String
-  size       Int
-  url        String
-  storage    String   @default("local") // local | s3
-  uploaderId String?
-  createdAt  DateTime @default(now())
+/// Join: Material ↔ Tag (many-to-many)
+model MaterialTag {
+  materialId String
+  tagId      String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([materialId, tagId])
+  @@index([tagId])
+}
+
+/// Combination of materials for a scene / slide stack
+model Combination {
+  id             String   @id @default(cuid())
+  name           String
+  /// Main material (single)
+  mainMaterialId String
+  mainMaterial   Material @relation("MainMaterial", fields: [mainMaterialId], references: [id], onDelete: Restrict)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  /// Connect materials (multiple selections)
+  connectMaterials CombinationConnect[]
+
+  @@index([mainMaterialId])
+}
+
+/// Join: Combination ↔ connected Materials (many-to-many)
+model CombinationConnect {
+  combinationId String
+  materialId    String
+  combination   Combination @relation(fields: [combinationId], references: [id], onDelete: Cascade)
+  material      Material    @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@id([combinationId, materialId])
+  @@index([materialId])
 }
