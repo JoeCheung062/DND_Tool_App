@@ -2,18 +2,25 @@
   "name": "dnd-display",
   "version": "0.1.0",
   "private": true,
-  "description": "DND Display App — Electron multi-screen room display client",
+  "description": "DND Display — cross-platform Electron desktop app for multi-screen rooms",
+  "author": "DND App",
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:electron": "node scripts/dev.mjs",
-    "build": "tsc -b && vite build && node scripts/build-electron.mjs",
+    "dev": "node scripts/dev-app.mjs",
+    "dev:renderer": "vite",
+    "build": "node scripts/generate-icon.mjs && tsc -b && vite build && node scripts/build-electron.mjs",
     "build:renderer": "tsc -b && vite build",
     "build:electron": "node scripts/build-electron.mjs",
     "start": "electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
     "typecheck": "tsc -b --noEmit",
-    "test:logic": "node --import tsx scripts/selftest.mjs"
+    "test:logic": "node --import tsx scripts/selftest.mjs",
+    "icons": "node scripts/generate-icon.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -27,9 +34,45 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "electron": "^35.1.2",
+    "electron-builder": "^26.0.12",
     "esbuild": "^0.27.0",
     "tsx": "^4.19.3",
     "typescript": "~5.8.2",
     "vite": "^8.3.0"
+  },
+  "build": {
+    "appId": "com.dndapp.display",
+    "productName": "DND Display",
+    "copyright": "Copyright © DND App",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Game",
+      "icon": "build/icon.png",
+      "desktopName": "dnd-display.desktop",
+      "executableName": "dnd-display"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.entertainment",
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

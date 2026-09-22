@@ -1,6 +1,6 @@
 import { io, type Socket } from "socket.io-client";
 import { getApiBase, getToken } from "./api";
-import { getDisplayApiOrMock } from "./displayApi";
+import { getDisplayApi } from "./displayApi";
 
 export type MaterialPlayEvent = {
   roomId: string;
@@ -34,7 +34,6 @@ export type SessionState = {
 };
 
 function socketUrl() {
-  // http://localhost:3000/api → http://localhost:3000
   return getApiBase().replace(/\/api\/?$/, "");
 }
 
@@ -42,7 +41,7 @@ export async function connectAndEnterRoom(roomId: string): Promise<SessionState>
   const token = getToken();
   if (!token) throw new Error("Sign in before entering a room");
 
-  const displayApi = getDisplayApiOrMock();
+  const displayApi = getDisplayApi();
   const info = await displayApi.getInfo();
 
   const socket = io(socketUrl(), {
@@ -114,7 +113,7 @@ export async function connectAndEnterRoom(roomId: string): Promise<SessionState>
 
 function wireSessionHandlers(state: SessionState) {
   const { socket, roomId, clientId } = state;
-  const displayApi = getDisplayApiOrMock();
+  const displayApi = getDisplayApi();
 
   socket.on("material:play", async (event: MaterialPlayEvent) => {
     if (event.roomId !== roomId) return;
@@ -162,7 +161,7 @@ function wireSessionHandlers(state: SessionState) {
 }
 
 function startHeartbeat(state: SessionState) {
-  const displayApi = getDisplayApiOrMock();
+  const displayApi = getDisplayApi();
   const tick = async () => {
     if (!state.socket.connected) return;
     try {
@@ -186,12 +185,16 @@ function startHeartbeat(state: SessionState) {
 
 export async function leaveSession(state: SessionState | null) {
   if (!state) return;
-  const displayApi = getDisplayApiOrMock();
   try {
+    const displayApi = getDisplayApi();
     state.socket.emit("room:leave", { roomId: state.roomId });
+    state.socket.disconnect();
+    await displayApi.closeDisplayWindows();
   } catch {
-    // ignore
+    try {
+      state.socket.disconnect();
+    } catch {
+      // ignore
+    }
   }
-  state.socket.disconnect();
-  await displayApi.closeDisplayWindows();
 }

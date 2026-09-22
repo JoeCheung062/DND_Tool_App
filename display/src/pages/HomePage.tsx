@@ -6,12 +6,12 @@ export function HomePage() {
 
   return (
     <section className="hero-panel">
-      <p className="eyebrow">Home</p>
+      <p className="eyebrow">Desktop · Home</p>
       <h1>Display App</h1>
       <p className="lede">
-        Create a room with a script, or enter an existing room. On enter, this
-        app detects connected screens and waits for Socket.IO display
-        instructions.
+        Native multi-screen client for Windows, macOS, and Linux. Create a room
+        with a script, or enter an existing room — this app detects connected
+        displays and waits for Socket.IO play instructions.
       </p>
       <div className="cta-row">
         <Link className="btn" to="/create">

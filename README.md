@@ -66,10 +66,9 @@ npm run dev
 # Terminal 2 — CMS
 npm run cms:dev
 
-# Terminal 3 — Display App UI (Electron shell optional)
+# Terminal 3 — Display desktop app (Electron)
 npm run display:install
 npm run display:dev
-# optional: npm run display:electron
 ```
 
 - API: `http://localhost:3000/api`
@@ -78,19 +77,19 @@ npm run display:dev
   - `dm@example.com` / `password123` (DM)
   - `admin@example.com` / `password123` (Admin)
   - `super@example.com` / `password123` (Super Admin)
-- Display App: `http://localhost:5174` (Vite) / Electron — see `display/README.md`
+- Display: **Electron desktop app** (Windows / macOS / Linux) — see `display/README.md`
 
-### Display App (Electron)
+### Display App (Electron desktop)
 
-Multi-screen client: **Home → Create Room / Enter Room**. Create selects a **script** (Campaign), then enter detects screen IDs, registers them over Socket.IO, and applies `material:play` assignments with process verification (`display:ack` / `display:verify`).
+Native multi-screen client — **not a website**. **Home → Create Room / Enter Room**. Create selects a **script** (Campaign), then enter detects screen IDs, registers them over Socket.IO, and applies `material:play` assignments with process verification (`display:ack` / `display:verify`).
 
 ```bash
 npm run display:install
-npm run display:dev        # UI
-npm run display:electron   # native windows (pair with display:dev)
+npm run display:dev        # launches Electron desktop app
+npm run display:pack       # unpackaged build for current OS
+npm run display:dist       # platform installers (AppImage/deb, exe, dmg)
 npm run display:test       # routing/verification self-test
-```
-### Database not reachable (`localhost:5432`)
+```### Database not reachable (`localhost:5432`)
 
 Prisma needs Postgres running. With Docker:
 

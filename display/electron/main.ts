@@ -1,10 +1,12 @@
 import {
   app,
   BrowserWindow,
+  Menu,
   ipcMain,
   screen as electronScreen,
   type Display,
 } from "electron";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -12,8 +14,11 @@ import { randomUUID } from "node:crypto";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const isDev = !app.isPackaged;
-const RENDERER_URL = process.env.VITE_DEV_SERVER_URL ?? "http://localhost:5174";
+/** Dev = Vite URL provided. Packaged / production electron uses local HTML files. */
+const isDev = !app.isPackaged && Boolean(process.env.VITE_DEV_SERVER_URL);
+const RENDERER_URL = process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5174";
+
+app.setName("DND Display");
 
 export type ScreenInfo = {
   id: number;
@@ -32,6 +37,10 @@ type DisplayWindowEntry = {
 let setupWindow: BrowserWindow | null = null;
 const displayWindows = new Map<number, DisplayWindowEntry>();
 const clientId = randomUUID();
+
+function rendererDist(...parts: string[]) {
+  return path.join(__dirname, "..", "dist", ...parts);
+}
 
 function toScreenInfo(d: Display, primaryId: number): ScreenInfo {
   return {
@@ -74,12 +83,14 @@ function displayPreloadPath() {
 
 function createSetupWindow() {
   setupWindow = new BrowserWindow({
-    width: 960,
-    height: 720,
-    minWidth: 800,
-    minHeight: 600,
+    width: 1100,
+    height: 760,
+    minWidth: 880,
+    minHeight: 640,
     title: "DND Display",
+    show: false,
     backgroundColor: "#0f1419",
+    autoHideMenuBar: true,
     webPreferences: {
       preload: setupPreloadPath(),
       contextIsolation: true,
@@ -88,10 +99,14 @@ function createSetupWindow() {
     },
   });
 
+  setupWindow.once("ready-to-show", () => {
+    setupWindow?.show();
+  });
+
   if (isDev) {
     void setupWindow.loadURL(RENDERER_URL);
   } else {
-    void setupWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+    void setupWindow.loadFile(rendererDist("index.html"));
   }
 
   setupWindow.on("closed", () => {
@@ -99,11 +114,14 @@ function createSetupWindow() {
   });
 }
 
-function displayPageUrl(screenId: number) {
+async function loadDisplayPage(win: BrowserWindow, screenId: number) {
   if (isDev) {
-    return `${RENDERER_URL}/display.html?screenId=${screenId}`;
+    await win.loadURL(`${RENDERER_URL}/display.html?screenId=${screenId}`);
+    return;
   }
-  return `file://${path.join(__dirname, "../dist/display.html")}?screenId=${screenId}`;
+  await win.loadFile(rendererDist("display.html"), {
+    query: { screenId: String(screenId) },
+  });
 }
 
 async function openDisplayWindows(screenIds?: number[]) {
@@ -129,7 +147,7 @@ async function openDisplayWindows(screenIds?: number[]) {
       frame: false,
       show: false,
       backgroundColor: "#000000",
-      title: `Display ${info.id}`,
+      title: `DND Display · Screen ${info.id}`,
       webPreferences: {
         preload: displayPreloadPath(),
         contextIsolation: true,
@@ -152,15 +170,14 @@ async function openDisplayWindows(screenIds?: number[]) {
       });
     });
 
-    await win.loadURL(displayPageUrl(info.id));
+    await loadDisplayPage(win, info.id);
 
-    const entry: DisplayWindowEntry = {
+    displayWindows.set(info.id, {
       screenId: info.id,
       window: win,
       processId: win.webContents.getOSProcessId(),
       webContentsId: win.webContents.id,
-    };
-    displayWindows.set(info.id, entry);
+    });
   }
 
   return {
@@ -178,9 +195,6 @@ function closeDisplayWindows() {
   displayWindows.clear();
 }
 
-/**
- * Route content to specific screen windows and verify each process responds.
- */
 async function assignContent(payload: {
   requestId: string;
   assignments: Array<{
@@ -200,7 +214,6 @@ async function assignContent(payload: {
   for (const assignment of payload.assignments) {
     const screenId = assignment.screenId;
     if (typeof screenId !== "number") {
-      // Broadcast to all open display windows when screenId omitted
       for (const entry of displayWindows.values()) {
         results.push(
           await deliverToWindow(entry, payload.requestId, assignment)
@@ -303,6 +316,8 @@ function registerIpc() {
     clientId,
     mainPid: process.pid,
     version: app.getVersion(),
+    packaged: app.isPackaged,
+    platform: process.platform,
   }));
 
   ipcMain.handle("screens:detect", () => detectScreens());
@@ -363,19 +378,98 @@ function registerIpc() {
   );
 }
 
-app.whenReady().then(() => {
-  registerIpc();
-  createSetupWindow();
+function installAppMenu() {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: "DND Display",
+      submenu: [
+        { role: "about" },
+        { type: "separator" },
+        { role: "quit" },
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [{ role: "minimize" }, { role: "close" }],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createSetupWindow();
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (setupWindow) {
+      if (setupWindow.isMinimized()) setupWindow.restore();
+      setupWindow.focus();
+    }
   });
-});
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
-});
+  app.whenReady().then(() => {
+    registerIpc();
+    installAppMenu();
+    createSetupWindow();
 
-app.on("before-quit", () => {
-  closeDisplayWindows();
-});
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) createSetupWindow();
+    });
+
+    if (process.env.DISPLAY_SMOKE === "1") {
+      const screens = detectScreens();
+      console.log(
+        JSON.stringify({
+          ok: true,
+          smoke: "display-desktop",
+          platform: process.platform,
+          packaged: app.isPackaged,
+          screens: screens.length,
+          screenIds: screens.map((s) => s.id),
+          mainPid: process.pid,
+        })
+      );
+
+      const shotPath = process.env.DISPLAY_SMOKE_SHOT;
+      if (shotPath && setupWindow && !setupWindow.isDestroyed()) {
+        const win = setupWindow;
+        const capture = () => {
+          void win.webContents
+            .capturePage()
+            .then((img) => {
+              writeFileSync(shotPath, img.toPNG());
+              console.log(JSON.stringify({ ok: true, screenshot: shotPath, bytes: img.getSize() }));
+            })
+            .catch((err: unknown) => {
+              console.error("screenshot failed", err);
+            })
+            .finally(() => setTimeout(() => app.quit(), 400));
+        };
+        if (win.webContents.isLoading()) {
+          win.webContents.once("did-finish-load", () => setTimeout(capture, 500));
+        } else {
+          setTimeout(capture, 500);
+        }
+      } else {
+        setTimeout(() => app.quit(), 1200);
+      }
+    }
+  });
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") app.quit();
+  });
+
+  app.on("before-quit", () => {
+    closeDisplayWindows();
+  });
+}

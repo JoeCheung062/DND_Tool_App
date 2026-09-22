@@ -1,6 +1,8 @@
-# DND Display App (Electron)
+# DND Display (Electron desktop app)
 
-Cross-platform **Display App** for multi-screen DND sessions.
+Cross-platform **native desktop application** for multi-screen DND sessions — **not a website**.
+
+Built with **Electron** for Windows, macOS, and Linux.
 
 ## Flow
 
@@ -10,28 +12,46 @@ Cross-platform **Display App** for multi-screen DND sessions.
 4. **Socket.IO** receives `material:play` with per-screen assignments  
 5. **Process verification** — each display window must ack; heartbeats + `display:verify` confirm processes are alive  
 
-## Run
+## Run the desktop app
 
 API must be running (`npm run dev` from repo root) with Postgres.
 
 ```bash
 # from repo root
 npm run display:install
-npm run display:dev          # Vite UI on :5174 (browser mock screens OK)
-npm run display:electron     # Electron shell (needs display:dev or a build)
+npm run display:dev          # launches Electron + Vite (native window)
 ```
 
-Typical local pair:
+Or from `display/`:
 
 ```bash
-# terminal A
-npm run display:dev
-
-# terminal B
-npm run display:electron
+npm install
+npm run dev                  # Electron desktop shell
+npm start                    # run built app (after npm run build)
 ```
 
 Sign in with a DM/Admin account (e.g. `dm@example.com` / `password123`).
+
+> Opening the Vite URL in a browser is blocked on purpose — screen detection and fullscreen display windows require the Electron shell.
+
+## Package installers (Win / macOS / Linux)
+
+```bash
+cd display
+npm run dist                 # current platform
+npm run dist:linux           # AppImage + deb
+npm run dist:win             # NSIS + portable
+npm run dist:mac             # dmg + zip (macOS host)
+npm run pack                 # unpackaged dir (useful for smoke tests)
+```
+
+Artifacts land in `display/release/`:
+
+| Platform | Output |
+|----------|--------|
+| Linux | `DND Display-*.AppImage`, `*.deb` |
+| Windows | `DND Display Setup *.exe`, portable exe |
+| macOS | `DND Display-*.dmg` |
 
 ## Socket protocol (Display)
 
@@ -45,21 +65,12 @@ Sign in with a DM/Admin account (e.g. `dm@example.com` / `password123`).
 | `material:play` | Server → Display | Assign content to screenId(s) |
 | `display:ack` | Display → Server | Per-screen apply + process verification |
 
-Example play payload:
-
-```json
-{
-  "roomId": "…",
-  "requestId": "req_123",
-  "assignments": [
-    { "screenId": 1, "materialId": "…" },
-    { "screenId": 2, "materialId": "…" }
-  ]
-}
-```
-
 ## Scripts
 
-- `npm run typecheck` — renderer TS  
-- `npm run test:logic` — screen routing / verification helpers  
-- `npm run build` — Vite + Electron main/preload  
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Electron desktop app (dev) |
+| `npm run build` | Build renderer + Electron main |
+| `npm run start` | Launch built desktop app |
+| `npm run dist` | Package platform installers |
+| `npm run test:logic` | Screen routing / verification helpers |

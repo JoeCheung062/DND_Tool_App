@@ -31,8 +31,8 @@ export function LoginPage() {
     <section className="panel narrow">
       <h1>Sign in</h1>
       <p className="lede">
-        Display App uses an Admin / DM account to create rooms and receive
-        Socket.IO play instructions.
+        Display is a desktop app. Sign in with an Admin / DM account to create
+        rooms and receive Socket.IO play instructions.
       </p>
       <form onSubmit={onSubmit} className="stack">
         <label>

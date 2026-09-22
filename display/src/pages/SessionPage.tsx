@@ -6,7 +6,7 @@ import {
   leaveSession,
   type SessionState,
 } from "../lib/session";
-import { getDisplayApiOrMock } from "../lib/displayApi";
+import { getDisplayApi } from "../lib/displayApi";
 
 export function SessionPage() {
   const { roomId = "" } = useParams();
@@ -65,7 +65,7 @@ export function SessionPage() {
 
   async function runVerify() {
     if (!session) return;
-    const result = await getDisplayApiOrMock().verifyProcesses();
+    const result = await getDisplayApi().verifyProcesses();
     session.socket.emit("display:verify-result", {
       roomId: session.roomId,
       clientId: session.clientId,

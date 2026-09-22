@@ -13,6 +13,8 @@ const api = {
       clientId: string;
       mainPid: number;
       version: string;
+      packaged?: boolean;
+      platform?: string;
     }>,
   detectScreens: () =>
     ipcRenderer.invoke("screens:detect") as Promise<ScreenInfo[]>,

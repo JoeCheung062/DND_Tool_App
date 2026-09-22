@@ -11,4 +11,5 @@ coverage/
 .idea/
 .vscode/
 display/release/
+display/tsconfig.tsbuildinfo
 tsconfig.tsbuildinfo
