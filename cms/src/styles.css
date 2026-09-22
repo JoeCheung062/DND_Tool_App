@@ -386,15 +386,22 @@ p {
   padding: 1rem;
   z-index: 50;
   animation: fade 180ms ease;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal {
   width: min(560px, 100%);
+  max-height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
   background: var(--panel);
   border-radius: 18px;
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
   animation: pop 220ms ease;
+  margin: auto;
+  overflow: hidden;
 }
 
 .modal-head,
@@ -404,6 +411,7 @@ p {
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.15rem;
+  flex-shrink: 0;
 }
 
 .modal-head {
@@ -417,6 +425,28 @@ p {
 
 .modal-body {
   padding: 1.1rem 1.15rem 0.4rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  min-height: 0;
+  flex: 1 1 auto;
+  scrollbar-gutter: stable;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(28, 25, 21, 0.28);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: rgba(28, 25, 21, 0.06);
 }
 
 .icon-btn {
