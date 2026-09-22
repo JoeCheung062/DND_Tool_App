@@ -34,6 +34,9 @@ export function LoginPage() {
         </div>
         <p className="lede">Manage rooms, campaigns, materials, and combinations.</p>
         <ErrorBanner message={error} />
+        <p className="lede" style={{ fontSize: "0.85rem", marginTop: "-0.6rem" }}>
+          API must be running: <code>npm run dev</code> on port 3000
+        </p>
         <Field label="Email">
           <input
             type="email"

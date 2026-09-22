@@ -22,6 +22,25 @@ export class ApiError extends Error {
   }
 }
 
+function apiUrl(path: string): string {
+  const normalized = path.startsWith("/api") ? path : `/api${path}`;
+  const base = import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "";
+  return `${base}${normalized}`;
+}
+
+async function parseBody(res: Response): Promise<unknown> {
+  const text = await res.text();
+  if (!text.trim()) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new ApiError(
+      res.status,
+      `Server returned non-JSON (HTTP ${res.status}). Is the API running on port 3000?`
+    );
+  }
+}
+
 export async function api<T>(
   path: string,
   options: RequestInit & { json?: unknown } = {}
@@ -33,23 +52,43 @@ export async function api<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(path.startsWith("/api") ? path : `/api${path}`, {
-    ...options,
-    headers,
-    body: options.json !== undefined ? JSON.stringify(options.json) : options.body,
-  });
+  let res: Response;
+  try {
+    res = await fetch(apiUrl(path), {
+      ...options,
+      headers,
+      body:
+        options.json !== undefined ? JSON.stringify(options.json) : options.body,
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      "Cannot reach the API. Start it with `npm run dev` in the repo root (port 3000), then retry."
+    );
+  }
 
-  const payload = (await res.json()) as ApiOk<T> | ApiErr;
-  if (!res.ok || !payload.success) {
+  const payload = (await parseBody(res)) as ApiOk<T> | ApiErr | null;
+
+  if (payload == null) {
+    throw new ApiError(
+      res.status,
+      res.ok
+        ? "Empty response from API"
+        : `API error (HTTP ${res.status}). Start the server with \`npm run dev\` on port 3000.`
+    );
+  }
+
+  if (!res.ok || !("success" in payload) || !payload.success) {
     const message =
-      !payload.success && "message" in payload
+      payload && "message" in payload && typeof payload.message === "string"
         ? payload.message
-        : `Request failed (${res.status})`;
+        : `Request failed (HTTP ${res.status})`;
     throw new ApiError(
       res.status,
       message,
-      !payload.success ? payload.details : undefined
+      payload && "details" in payload ? payload.details : undefined
     );
   }
+
   return payload.data;
 }

@@ -13,13 +13,19 @@ npm install
 npm run cms:install
 ```
 
-From repo root (API must be on `:3000`):
+From repo root — **two terminals**:
 
 ```bash
-npm run db:seed
-npm run dev          # API
-npm run cms:dev      # CMS at http://localhost:5173
+# Terminal 1 — API (required)
+npm run dev
+
+# Terminal 2 — CMS
+npm run cms:dev
 ```
+
+Open `http://localhost:5173`. The CMS proxies `/api` → `http://localhost:3000`.
+
+If login shows an API/JSON error, the backend is not running on `:3000`.
 
 Or from this folder:
 
