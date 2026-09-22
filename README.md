@@ -52,17 +52,41 @@ Join tables: `MaterialCampaignPreset`, `MaterialTag`, `CombinationConnect`.
 ## Quick start
 
 ```bash
+git fetch origin && git checkout cursor/dnd-cms-dda5
 cp .env.example .env
-docker compose up -d
-npm install
-npx prisma migrate deploy
-npm run db:seed          # sample data (dm@example.com / password123)
+npm install && npm run cms:install
+
+# Start PostgreSQL (Docker required), migrate, seed
+npm run db:setup
+
+# Terminal 1 — API
 npm run dev
+
+# Terminal 2 — CMS
+npm run cms:dev
 ```
 
 - API: `http://localhost:3000/api`
 - Docs: `http://localhost:3000/api/docs`
-- Socket.IO: `http://localhost:3000/socket.io`
+- CMS: `http://localhost:5173` (`dm@example.com` / `password123`)
+
+### Database not reachable (`localhost:5432`)
+
+Prisma needs Postgres running. With Docker:
+
+```bash
+npm run db:up                 # docker compose up -d
+npx prisma migrate deploy
+npm run db:seed
+```
+
+Without Docker, install Postgres 16 locally and create database `dnd_app` with user/password matching `DATABASE_URL` in `.env`.
+
+Check connectivity:
+
+```bash
+npm run db:tables
+```
 
 ## Data management API
 
