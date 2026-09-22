@@ -18,7 +18,10 @@
     "db:seed": "tsx prisma/seed.ts",
     "typecheck": "tsc --noEmit",
     "test:dice": "tsx src/utils/dice.selftest.ts",
-    "test:crud": "node scripts/crud-smoke.mjs"
+    "test:crud": "node scripts/crud-smoke.mjs",
+    "cms:dev": "npm run dev --prefix cms",
+    "cms:build": "npm run build --prefix cms",
+    "cms:preview": "npm run preview --prefix cms"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

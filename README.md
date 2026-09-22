@@ -112,6 +112,14 @@ socket.emit("dice:roll", { roomId, expression: "2d6+3" }, console.log);
 socket.emit("material:play", { roomId, materialId }, console.log);
 ```
 
-## Optional S3
+## CMS (data management UI)
 
-Set `S3_ENABLED=true` plus bucket/credentials to store uploads on S3; otherwise files go to local `uploads/`.
+```bash
+npm run db:seed
+npm run dev          # API on :3000
+npm run cms:dev      # CMS on :5173
+```
+
+Open `http://localhost:5173` and sign in with `dm@example.com` / `password123`.
+
+The CMS provides dashboard counts, full CRUD for Rooms / Campaigns / Characters / Tags / Materials / Combinations, user profile editing, and SQL table inspection.
