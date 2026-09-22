@@ -82,6 +82,20 @@ npm run db:seed
 
 Without Docker, install Postgres 16 locally and create database `dnd_app` with user/password matching `DATABASE_URL` in `.env`.
 
+### `Unknown argument displayName` (schema mismatch)
+
+Your code is new but the Prisma client/DB is still the old schema. Reset and regenerate:
+
+```bash
+git checkout cursor/dnd-cms-dda5
+git pull origin cursor/dnd-cms-dda5
+npm install
+npm run db:fresh    # wipe Docker DB volume, generate, migrate, seed
+# restart API: npm run dev
+```
+
+Login: `dm@example.com` / `password123`
+
 Check connectivity:
 
 ```bash
