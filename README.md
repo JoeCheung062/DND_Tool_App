@@ -136,6 +136,18 @@ curl -X POST http://localhost:3000/api/materials \
 
 In the CMS Materials page, choose a file with the upload control (no URL needed).
 
+### Character example (multipart illustration upload)
+
+```bash
+curl -X POST http://localhost:3000/api/characters \
+  -H "Authorization: Bearer <JWT>" \
+  -F "name=Thorin" \
+  -F "userId=<user_id>" \
+  -F "file=@./thorin.png"
+```
+
+Illustration is optional. In the CMS Characters page, pick an image file (JPEG/PNG/WebP/GIF).
+
 ### Combination example
 
 ```json

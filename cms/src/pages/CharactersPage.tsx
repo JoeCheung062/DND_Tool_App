@@ -13,7 +13,7 @@ export function CharactersPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Character | null>(null);
   const [name, setName] = useState("");
-  const [illustration, setIllustration] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [userId, setUserId] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -41,7 +41,7 @@ export function CharactersPage() {
   function openCreate() {
     setEditing(null);
     setName("");
-    setIllustration("");
+    setFile(null);
     setUserId(users[0]?.id ?? "");
     setOpen(true);
   }
@@ -49,7 +49,7 @@ export function CharactersPage() {
   function openEdit(row: Character) {
     setEditing(row);
     setName(row.name);
-    setIllustration(row.illustration ?? "");
+    setFile(null);
     setUserId(row.userId);
     setOpen(true);
   }
@@ -66,14 +66,14 @@ export function CharactersPage() {
       if (editing) {
         await charactersApi.update(editing.id, {
           name: name.trim(),
-          illustration: illustration.trim() || null,
           userId,
+          file: file ?? undefined,
         });
       } else {
         await charactersApi.create({
           name: name.trim(),
-          illustration: illustration.trim() || undefined,
           userId,
+          file: file ?? undefined,
         });
       }
       setOpen(false);
@@ -99,7 +99,7 @@ export function CharactersPage() {
     <div>
       <PageHeader
         title="Characters"
-        subtitle="Player characters with illustration and owner."
+        subtitle="Player characters with uploaded illustration and owner."
         actions={
           <button type="button" className="btn" onClick={openCreate}>
             New character
@@ -122,7 +122,11 @@ export function CharactersPage() {
                 render: (r) =>
                   r.illustration ? (
                     <a href={r.illustration} target="_blank" rel="noreferrer">
-                      View
+                      <img
+                        src={r.illustration}
+                        alt={r.name}
+                        className="asset-thumb"
+                      />
                     </a>
                   ) : (
                     "—"
@@ -171,12 +175,21 @@ export function CharactersPage() {
           <Field label="Name">
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </Field>
-          <Field label="Illustration URL">
+          <Field label={editing ? "Replace illustration (optional)" : "Illustration"}>
             <input
-              value={illustration}
-              onChange={(e) => setIllustration(e.target.value)}
-              placeholder="https://..."
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
+            {editing?.illustration && !file ? (
+              <span className="hint">
+                Current:{" "}
+                <a href={editing.illustration} target="_blank" rel="noreferrer">
+                  view
+                </a>
+              </span>
+            ) : null}
+            {file ? <span className="hint">Selected: {file.name}</span> : null}
           </Field>
           <Field label="Owner (user)">
             <select value={userId} onChange={(e) => setUserId(e.target.value)} required>

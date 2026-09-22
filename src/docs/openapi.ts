@@ -286,9 +286,25 @@ export const openApiDocument = {
       post: {
         tags: ["Character"],
         security: [{ bearerAuth: [] }],
-        summary: "Create character",
+        summary: "Create character (multipart: name, userId, optional file illustration)",
         requestBody: {
-          content: { "application/json": { schema: { $ref: "#/components/schemas/Character" } } },
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["name", "userId"],
+                properties: {
+                  name: { type: "string" },
+                  userId: { type: "string" },
+                  file: {
+                    type: "string",
+                    format: "binary",
+                    description: "Optional character illustration (JPEG/PNG/WebP/GIF)",
+                  },
+                },
+              },
+            },
+          },
         },
         responses: { "201": { description: "Created" } },
       },
@@ -304,7 +320,7 @@ export const openApiDocument = {
       patch: {
         tags: ["Character"],
         security: [{ bearerAuth: [] }],
-        summary: "Update character",
+        summary: "Update character (multipart: optional file to replace illustration)",
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         responses: { "200": { description: "Updated" } },
       },

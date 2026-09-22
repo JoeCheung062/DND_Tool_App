@@ -76,13 +76,14 @@ export const updateCampaignSchema = z.object({
 // ── Character ────────────────────────────────────────────────────
 export const createCharacterSchema = z.object({
   name: z.string().min(1).max(100),
-  illustration: z.string().url().optional(),
+  /** Optional when uploading via multipart field `file` */
+  illustration: z.string().min(1).optional(),
   userId: z.string().min(1),
 });
 
 export const updateCharacterSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  illustration: z.string().url().nullable().optional(),
+  illustration: z.string().min(1).nullable().optional(),
   userId: z.string().min(1).optional(),
 });
 

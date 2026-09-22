@@ -79,12 +79,24 @@ export const campaignsApi = {
 
 export const charactersApi = {
   list: () => api<Character[]>("/characters"),
-  create: (body: { name: string; illustration?: string; userId: string }) =>
-    api<Character>("/characters", { method: "POST", json: body }),
+  create: (body: { name: string; userId: string; file?: File }) => {
+    const formData = new FormData();
+    formData.append("name", body.name);
+    formData.append("userId", body.userId);
+    if (body.file) formData.append("file", body.file);
+    return api<Character>("/characters", { method: "POST", formData });
+  },
   update: (
     id: string,
-    body: { name?: string; illustration?: string | null; userId?: string }
-  ) => api<Character>(`/characters/${id}`, { method: "PATCH", json: body }),
+    body: { name?: string; userId?: string; file?: File; clearIllustration?: boolean }
+  ) => {
+    const formData = new FormData();
+    if (body.name) formData.append("name", body.name);
+    if (body.userId) formData.append("userId", body.userId);
+    if (body.file) formData.append("file", body.file);
+    if (body.clearIllustration) formData.append("illustration", "");
+    return api<Character>(`/characters/${id}`, { method: "PATCH", formData });
+  },
   remove: (id: string) =>
     api<{ id: string }>(`/characters/${id}`, { method: "DELETE" }),
 };

@@ -5,11 +5,15 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { env, isS3Enabled } from "../config/env.js";
 import { AppError } from "../utils/AppError.js";
 
-const ALLOWED_MIME = new Set([
+const IMAGE_MIME = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
+]);
+
+const ALLOWED_MIME = new Set([
+  ...IMAGE_MIME,
   "audio/mpeg",
   "audio/wav",
   "audio/ogg",
@@ -85,16 +89,20 @@ async function storeS3(file: Express.Multer.File, filename: string) {
 
 export async function saveUpload(
   file: Express.Multer.File | undefined,
-  uploaderId?: string
+  uploaderId?: string,
+  options?: { imagesOnly?: boolean }
 ) {
   if (!file) {
     throw new AppError(400, "No file provided. Use field name \"file\".");
   }
 
-  if (!ALLOWED_MIME.has(file.mimetype)) {
+  const allowed = options?.imagesOnly ? IMAGE_MIME : ALLOWED_MIME;
+  if (!allowed.has(file.mimetype)) {
     throw new AppError(
       400,
-      "Unsupported file type. Allowed: images, audio, and short video assets"
+      options?.imagesOnly
+        ? "Only JPEG, PNG, WebP, and GIF images are allowed"
+        : "Unsupported file type. Allowed: images, audio, and short video assets"
     );
   }
 
