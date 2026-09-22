@@ -51,13 +51,24 @@ export async function listMaterials(filters?: {
   type?: "IMAGE" | "EFFECT" | "SOUND";
   campaignId?: string;
   tagId?: string;
+  /** With campaignId, also include materials marked general */
+  includeGeneral?: boolean;
 }) {
+  const campaignFilter = filters?.campaignId
+    ? filters.includeGeneral
+      ? {
+          OR: [
+            { campaignPresets: { some: { campaignId: filters.campaignId } } },
+            { general: true },
+          ],
+        }
+      : { campaignPresets: { some: { campaignId: filters.campaignId } } }
+    : {};
+
   const materials = await prisma.material.findMany({
     where: {
       ...(filters?.type ? { type: filters.type } : {}),
-      ...(filters?.campaignId
-        ? { campaignPresets: { some: { campaignId: filters.campaignId } } }
-        : {}),
+      ...campaignFilter,
       ...(filters?.tagId ? { tags: { some: { tagId: filters.tagId } } } : {}),
     },
     orderBy: { createdAt: "desc" },
@@ -85,6 +96,7 @@ export async function createMaterial(
     data: {
       type: input.type,
       name: input.name,
+      general: input.general ?? false,
       assetUrl: input.assetUrl,
       campaignPresets: {
         create: input.campaignIds.map((campaignId) => ({ campaignId })),
@@ -133,6 +145,7 @@ export async function updateMaterial(id: string, input: UpdateMaterialInput) {
         type: input.type,
         name: input.name,
         assetUrl: input.assetUrl,
+        ...(input.general !== undefined ? { general: input.general } : {}),
       },
       include: materialInclude,
     });

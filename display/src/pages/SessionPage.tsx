@@ -16,6 +16,7 @@ export function SessionPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Connecting…");
   const [verifyNote, setVerifyNote] = useState<string | null>(null);
+  const [authNote, setAuthNote] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -28,7 +29,7 @@ export function SessionPage() {
         if (!alive) return;
         setRoom(r);
 
-        setStatus("Detecting screens & joining Socket.IO…");
+        setStatus("Detecting screens, downloading materials, joining Socket.IO…");
         active = await connectAndEnterRoom(roomId);
         if (!alive) {
           await leaveSession(active);
@@ -36,7 +37,7 @@ export function SessionPage() {
         }
         setSession(active);
         setStatus(
-          `Live · ${active.screens.length} screen(s) registered · waiting for instructions`
+          `Live · ${active.screens.length} screen(s) · ${active.downloaded.length} material(s) on device`
         );
 
         active.socket.on("display:ack", (payload) => {
@@ -44,12 +45,24 @@ export function SessionPage() {
           setVerifyNote(
             `Ack ${payload.requestId}: ${(payload.results || [])
               .map(
-                (r: { screenId: number; ok: boolean }) =>
-                  `screen ${r.screenId}=${r.ok ? "ok" : "fail"}`
+                (r: { screenId: number; ok: boolean; authenticated?: boolean }) =>
+                  `screen ${r.screenId}=${r.authenticated ? "authenticated" : "rejected"}`
               )
               .join(", ")}`
           );
         });
+
+        active.socket.on(
+          "display:authenticated",
+          (payload: { requestId?: string; authenticated?: boolean }) => {
+            if (!alive) return;
+            setAuthNote(
+              payload.authenticated
+                ? `Process authentication passed · ${payload.requestId}`
+                : `Process authentication failed · ${payload.requestId}`
+            );
+          }
+        );
       } catch (err) {
         if (!alive) return;
         setError(err instanceof Error ? err.message : "Failed to enter room");
@@ -92,7 +105,7 @@ export function SessionPage() {
       <p className="eyebrow">In room</p>
       <h1>{room?.name || "Room"}</h1>
       <p className="lede">
-        Script:{" "}
+        Campaign:{" "}
         <strong>{room?.campaign?.name || "None selected"}</strong>
         {" · "}
         Status: {status}
@@ -126,11 +139,26 @@ export function SessionPage() {
 
           <div className="meta-block">
             <p>
+              Downloaded{" "}
+              <strong>{session?.downloaded.length ?? 0}</strong>
+              {session && session.downloadFailed.length > 0
+                ? ` · ${session.downloadFailed.length} failed`
+                : ""}
+            </p>
+            {session && session.downloaded.length > 0 ? (
+              <p>
+                {session.downloaded
+                  .map((item) => `${item.name} (${item.type})`)
+                  .join(", ")}
+              </p>
+            ) : null}
+            <p>
               Client <span className="mono">{session?.clientId || "—"}</span>
             </p>
             <p>
               Main PID <span className="mono">{session?.mainPid ?? "—"}</span>
             </p>
+            {authNote ? <p className="ok">{authNote}</p> : null}
             {verifyNote ? <p className="ok">{verifyNote}</p> : null}
           </div>
 

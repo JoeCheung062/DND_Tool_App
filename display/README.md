@@ -7,10 +7,11 @@ Built with **Electron** for Windows, macOS, and Linux.
 ## Flow
 
 1. **Home** → Create Room / Enter Room  
-2. **Create Room** → set room name → select script (Campaign) → Enter Room  
-3. **Enter Room** → detect connected screens + IDs → open a fullscreen window per screen  
-4. **Socket.IO** receives `material:play` with per-screen assignments  
-5. **Process verification** — each display window must ack; heartbeats + `display:verify` confirm processes are alive  
+2. **Create Room** → set room name → select Campaign → Enter Room  
+3. **Enter Room** → detect connected screens + IDs → download every Material for that Campaign, including materials marked General, onto the device  
+4. **Socket.IO** receives `material:play` with per-screen assignments (one screen can receive several materials)  
+5. **Process authentication** — each display window acks with a process token issued at window creation. The server checks the token and emits `display:authenticated` before the screen paints  
+6. **Canvas** — authenticated screens draw IMAGE and EFFECT layers together; SOUND plays alongside the canvas  
 
 ## Run the desktop app
 
@@ -62,8 +63,9 @@ Artifacts land in `display/release/`:
 | `display:heartbeat` | Display → Server | Periodic process liveness |
 | `display:verify` | Server → Display | Challenge process verification |
 | `display:verify-result` | Display → Server | Verification response |
-| `material:play` | Server → Display | Assign content to screenId(s) |
-| `display:ack` | Display → Server | Per-screen apply + process verification |
+| `material:play` | Server → Display | Assign one or more materials to screenId(s) |
+| `display:ack` | Display → Server | Per-screen apply + process token |
+| `display:authenticated` | Server → Display | Token matched; screen may paint |
 
 ## Scripts
 

@@ -57,6 +57,7 @@ export type Material = {
   id: string;
   type: MaterialType;
   name: string;
+  general?: boolean;
   assetUrl: string;
   campaigns?: { id: string; name: string }[];
   tagList?: { id: string; name: string }[];

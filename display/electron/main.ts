@@ -3,12 +3,15 @@ import {
   BrowserWindow,
   Menu,
   ipcMain,
+  net,
+  protocol,
   screen as electronScreen,
   type Display,
 } from "electron";
+import { mkdir, writeFile } from "node:fs/promises";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,6 +22,23 @@ const isDev = !app.isPackaged && Boolean(process.env.VITE_DEV_SERVER_URL);
 const RENDERER_URL = process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5174";
 
 app.setName("DND Display");
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "local-material",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      corsEnabled: true,
+      bypassCSP: true,
+    },
+  },
+]);
+
+const materialFiles = new Map<string, string>();
+const processTokens = new Map<number, string>();
 
 export type ScreenInfo = {
   id: number;
@@ -32,6 +52,7 @@ type DisplayWindowEntry = {
   window: BrowserWindow;
   processId: number;
   webContentsId: number;
+  processToken: string;
 };
 
 let setupWindow: BrowserWindow | null = null;
@@ -70,6 +91,7 @@ function processSnapshot() {
     processId: entry.processId,
     webContentsId: entry.webContentsId,
     alive: !entry.window.isDestroyed() && !entry.window.webContents.isDestroyed(),
+    processToken: entry.processToken,
   }));
 }
 
@@ -138,6 +160,10 @@ async function openDisplayWindows(screenIds?: number[]) {
       continue;
     }
 
+    if (!processTokens.has(info.id)) {
+      processTokens.set(info.id, randomUUID());
+    }
+
     const win = new BrowserWindow({
       x: info.bounds.x,
       y: info.bounds.y,
@@ -153,7 +179,10 @@ async function openDisplayWindows(screenIds?: number[]) {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
-        additionalArguments: [`--screen-id=${info.id}`],
+        additionalArguments: [
+          `--screen-id=${info.id}`,
+          `--process-token=${processTokens.get(info.id) ?? ""}`,
+        ],
       },
     });
 
@@ -177,6 +206,7 @@ async function openDisplayWindows(screenIds?: number[]) {
       window: win,
       processId: win.webContents.getOSProcessId(),
       webContentsId: win.webContents.id,
+      processToken: processTokens.get(info.id) ?? "",
     });
   }
 
@@ -201,6 +231,12 @@ async function assignContent(payload: {
     screenId?: number;
     materialId?: string;
     combinationId?: string;
+    materials?: Array<{
+      id: string;
+      type: string;
+      name: string;
+      localUrl: string;
+    }>;
     content?: unknown;
   }>;
 }) {
@@ -208,6 +244,7 @@ async function assignContent(payload: {
     screenId: number;
     ok: boolean;
     processId?: number;
+    processToken?: string;
     error?: string;
   }> = [];
 
@@ -250,12 +287,19 @@ function deliverToWindow(
     screenId?: number;
     materialId?: string;
     combinationId?: string;
+    materials?: Array<{
+      id: string;
+      type: string;
+      name: string;
+      localUrl: string;
+    }>;
     content?: unknown;
   }
 ): Promise<{
   screenId: number;
   ok: boolean;
   processId?: number;
+  processToken?: string;
   error?: string;
 }> {
   return new Promise((resolve) => {
@@ -279,21 +323,29 @@ function deliverToWindow(
     }, 4000);
 
     const channel = `display:applied:${requestId}:${entry.screenId}`;
-    ipcMain.once(channel, (_event, response: { ok?: boolean; error?: string }) => {
-      clearTimeout(timeout);
-      resolve({
-        screenId: entry.screenId,
-        ok: response?.ok !== false,
-        processId: entry.processId,
-        error: response?.error,
-      });
-    });
+    ipcMain.once(
+      channel,
+      (
+        _event,
+        response: { ok?: boolean; error?: string; processToken?: string }
+      ) => {
+        clearTimeout(timeout);
+        resolve({
+          screenId: entry.screenId,
+          ok: response?.ok !== false,
+          processId: entry.processId,
+          processToken: response?.processToken,
+          error: response?.error,
+        });
+      }
+    );
 
     entry.window.webContents.send("display:show", {
       requestId,
       screenId: entry.screenId,
       materialId: assignment.materialId,
       combinationId: assignment.combinationId,
+      materials: assignment.materials,
       content: assignment.content,
       replyChannel: channel,
     });
@@ -350,6 +402,12 @@ function registerIpc() {
           screenId?: number;
           materialId?: string;
           combinationId?: string;
+          materials?: Array<{
+            id: string;
+            type: string;
+            name: string;
+            localUrl: string;
+          }>;
           content?: unknown;
         }>;
       }
@@ -368,14 +426,95 @@ function registerIpc() {
       }
     ) => {
       if (payload?.replyChannel) {
+        const sender = [...displayWindows.values()].find(
+          (entry) => entry.window.webContents.id === event.sender.id
+        );
         ipcMain.emit(payload.replyChannel, event, {
           ok: payload.ok,
           error: payload.error,
-          screenId: payload.screenId,
+          screenId: sender?.screenId ?? payload.screenId,
+          processToken: sender?.processToken,
         });
       }
     }
   );
+
+  ipcMain.handle(
+    "materials:download",
+    async (
+      _e,
+      payload: {
+        apiBase: string;
+        token: string;
+        materials: Array<{
+          id: string;
+          name: string;
+          type: string;
+          assetUrl: string;
+        }>;
+      }
+    ) => {
+      const dir = path.join(app.getPath("userData"), "campaign-materials");
+      await mkdir(dir, { recursive: true });
+      const saved: Array<{
+        id: string;
+        name: string;
+        type: string;
+        localUrl: string;
+        bytes: number;
+      }> = [];
+      const failed: Array<{ id: string; error: string }> = [];
+
+      for (const material of payload.materials) {
+        try {
+          const remote = material.assetUrl.startsWith("http")
+            ? material.assetUrl
+            : `${payload.apiBase.replace(/\/api\/?$/, "")}${
+                material.assetUrl.startsWith("/")
+                  ? material.assetUrl
+                  : `/${material.assetUrl}`
+              }`;
+          const response = await net.fetch(remote, {
+            headers: payload.token
+              ? { Authorization: `Bearer ${payload.token}` }
+              : {},
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const bytes = Buffer.from(await response.arrayBuffer());
+          const ext =
+            path.extname(new URL(remote, "http://local").pathname) || ".bin";
+          const filePath = path.join(dir, `${material.id}${ext}`);
+          await writeFile(filePath, bytes);
+          materialFiles.set(material.id, filePath);
+          saved.push({
+            id: material.id,
+            name: material.name,
+            type: material.type,
+            localUrl: `local-material://${material.id}`,
+            bytes: bytes.length,
+          });
+        } catch (err) {
+          failed.push({
+            id: material.id,
+            error: err instanceof Error ? err.message : "download failed",
+          });
+        }
+      }
+
+      return { saved, failed, directory: dir };
+    }
+  );
+
+  ipcMain.handle("display:paint", (_e, requestId: string) => {
+    for (const entry of displayWindows.values()) {
+      if (!entry.window.isDestroyed()) {
+        entry.window.webContents.send("display:paint", { requestId });
+      }
+    }
+    return { ok: true };
+  });
 }
 
 function installAppMenu() {
@@ -417,6 +556,14 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    protocol.handle("local-material", (request) => {
+      const id = new URL(request.url).hostname;
+      const filePath = materialFiles.get(id);
+      if (!filePath) {
+        return new Response("Material not downloaded", { status: 404 });
+      }
+      return net.fetch(pathToFileURL(filePath).toString());
+    });
     registerIpc();
     installAppMenu();
     createSetupWindow();
@@ -439,29 +586,82 @@ if (!gotLock) {
         })
       );
 
-      const shotPath = process.env.DISPLAY_SMOKE_SHOT;
-      if (shotPath && setupWindow && !setupWindow.isDestroyed()) {
-        const win = setupWindow;
-        const capture = () => {
-          void win.webContents
-            .capturePage()
-            .then((img) => {
-              writeFileSync(shotPath, img.toPNG());
-              console.log(JSON.stringify({ ok: true, screenshot: shotPath, bytes: img.getSize() }));
-            })
-            .catch((err: unknown) => {
-              console.error("screenshot failed", err);
-            })
-            .finally(() => setTimeout(() => app.quit(), 400));
-        };
-        if (win.webContents.isLoading()) {
-          win.webContents.once("did-finish-load", () => setTimeout(capture, 500));
-        } else {
-          setTimeout(capture, 500);
+      const capturePng = async (win: BrowserWindow, shotPath: string) => {
+        const img = await win.webContents.capturePage();
+        writeFileSync(shotPath, img.toPNG());
+        console.log(
+          JSON.stringify({
+            ok: true,
+            screenshot: shotPath,
+            bytes: img.toPNG().length,
+          })
+        );
+      };
+
+      void (async () => {
+        try {
+          const shotPath = process.env.DISPLAY_SMOKE_SHOT;
+          if (shotPath && setupWindow && !setupWindow.isDestroyed()) {
+            if (setupWindow.webContents.isLoading()) {
+              await new Promise<void>((resolve) => {
+                setupWindow?.webContents.once("did-finish-load", () => resolve());
+              });
+            }
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            await capturePng(setupWindow, shotPath);
+          }
+
+          const canvasShot = process.env.DISPLAY_SMOKE_CANVAS;
+          if (canvasShot) {
+            const iconPath = path.join(__dirname, "..", "build", "icon.png");
+            materialFiles.set("smoke-map", iconPath);
+            materialFiles.set("smoke-fx", iconPath);
+            const opened = await openDisplayWindows();
+            const screenId = opened.screens[0]?.id;
+            const entry =
+              typeof screenId === "number" ? displayWindows.get(screenId) : undefined;
+            if (!entry) throw new Error("smoke canvas: no display window");
+            const requestId = "smoke-canvas";
+            const channel = `display:applied:${requestId}:${entry.screenId}`;
+            await new Promise<void>((resolve, reject) => {
+              const timer = setTimeout(
+                () => reject(new Error("smoke canvas ack timeout")),
+                4000
+              );
+              ipcMain.once(channel, () => {
+                clearTimeout(timer);
+                resolve();
+              });
+              entry.window.webContents.send("display:show", {
+                requestId,
+                screenId: entry.screenId,
+                materials: [
+                  {
+                    id: "smoke-map",
+                    type: "IMAGE",
+                    name: "Campaign Map",
+                    localUrl: "local-material://smoke-map",
+                  },
+                  {
+                    id: "smoke-fx",
+                    type: "EFFECT",
+                    name: "Smoke Overlay",
+                    localUrl: "local-material://smoke-fx",
+                  },
+                ],
+                replyChannel: channel,
+              });
+            });
+            entry.window.webContents.send("display:paint", { requestId });
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            await capturePng(entry.window, canvasShot);
+          }
+        } catch (err) {
+          console.error("display smoke failed", err);
+        } finally {
+          setTimeout(() => app.quit(), 400);
         }
-      } else {
-        setTimeout(() => app.quit(), 1200);
-      }
+      })();
     }
   });
 

@@ -72,6 +72,29 @@ const api = {
     ipcRenderer.on("display:windows-changed", listener);
     return () => ipcRenderer.removeListener("display:windows-changed", listener);
   },
+  downloadMaterials: (payload: {
+    apiBase: string;
+    token: string;
+    materials: Array<{
+      id: string;
+      name: string;
+      type: string;
+      assetUrl: string;
+    }>;
+  }) =>
+    ipcRenderer.invoke("materials:download", payload) as Promise<{
+      saved: Array<{
+        id: string;
+        name: string;
+        type: string;
+        localUrl: string;
+        bytes: number;
+      }>;
+      failed: Array<{ id: string; error: string }>;
+      directory: string;
+    }>,
+  paint: (requestId: string) =>
+    ipcRenderer.invoke("display:paint", requestId) as Promise<{ ok: boolean }>,
 };
 
 contextBridge.exposeInMainWorld("displayApi", api);

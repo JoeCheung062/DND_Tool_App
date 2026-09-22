@@ -122,6 +122,15 @@ async function main() {
     },
   });
 
+  const generalMap = await prisma.material.create({
+    data: {
+      type: "IMAGE",
+      name: "General Map Frame",
+      general: true,
+      assetUrl: "/uploads/general-map.png",
+    },
+  });
+
   await prisma.combination.create({
     data: {
       name: "Tavern Ambience Pack",
@@ -145,7 +154,7 @@ async function main() {
     room: room.name,
     campaigns: [campaign1.name, campaign2.name],
     tags: [tagAmbience.name, tagCombat.name, tagNpc.name],
-    materials: [tavern.name, fireplace.name, smoke.name],
+    materials: [tavern.name, fireplace.name, smoke.name, generalMap.name],
   });
 }
 

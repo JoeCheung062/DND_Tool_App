@@ -46,7 +46,14 @@ export type DisplayApi = {
     assignments: Array<{
       screenId?: number;
       materialId?: string;
+      materialIds?: string[];
       combinationId?: string;
+      materials?: Array<{
+        id: string;
+        type: string;
+        name: string;
+        localUrl: string;
+      }>;
       content?: unknown;
     }>;
   }) => Promise<{
@@ -55,6 +62,7 @@ export type DisplayApi = {
       screenId: number;
       ok: boolean;
       processId?: number;
+      processToken?: string;
       error?: string;
     }>;
     processes: ProcessInfo[];
@@ -62,6 +70,27 @@ export type DisplayApi = {
     clientId: string;
   }>;
   onWindowsChanged: (cb: (payload: unknown) => void) => () => void;
+  downloadMaterials: (payload: {
+    apiBase: string;
+    token: string;
+    materials: Array<{
+      id: string;
+      name: string;
+      type: string;
+      assetUrl: string;
+    }>;
+  }) => Promise<{
+    saved: Array<{
+      id: string;
+      name: string;
+      type: string;
+      localUrl: string;
+      bytes: number;
+    }>;
+    failed: Array<{ id: string; error: string }>;
+    directory: string;
+  }>;
+  paint: (requestId: string) => Promise<{ ok: boolean }>;
 };
 
 declare global {

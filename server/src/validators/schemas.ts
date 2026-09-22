@@ -107,6 +107,8 @@ export const createMaterialSchema = z.object({
   name: z.string().min(1).max(200),
   /** Optional when uploading a file via multipart field `file` */
   assetUrl: z.string().min(1).optional(),
+  /** Included in every campaign download */
+  general: z.boolean().optional(),
   campaignIds: z.array(z.string().min(1)).default([]),
   tagIds: z.array(z.string().min(1)).default([]),
 });
@@ -115,6 +117,7 @@ export const updateMaterialSchema = z.object({
   type: materialTypeSchema.optional(),
   name: z.string().min(1).max(200).optional(),
   assetUrl: z.string().min(1).optional(),
+  general: z.boolean().optional(),
   campaignIds: z.array(z.string().min(1)).optional(),
   tagIds: z.array(z.string().min(1)).optional(),
 });

@@ -25,11 +25,20 @@ function parseIdList(value: unknown): string[] | undefined {
   return undefined;
 }
 
+function parseBool(value: unknown): boolean | undefined {
+  if (value == null || value === "") return undefined;
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === "1") return true;
+  if (value === "false" || value === "0") return false;
+  return undefined;
+}
+
 function materialPayloadFromRequest(req: Request) {
   return {
     type: req.body.type,
     name: req.body.name,
     assetUrl: req.body.assetUrl || undefined,
+    general: parseBool(req.body.general),
     campaignIds: parseIdList(req.body.campaignIds) ?? [],
     tagIds: parseIdList(req.body.tagIds) ?? [],
   };
@@ -43,11 +52,14 @@ export const list = asyncHandler(async (req: Request, res: Response) => {
   const campaignId =
     typeof req.query.campaignId === "string" ? req.query.campaignId : undefined;
   const tagId = typeof req.query.tagId === "string" ? req.query.tagId : undefined;
+  const includeGeneral =
+    req.query.includeGeneral === "1" || req.query.includeGeneral === "true";
 
   const materials = await materialService.listMaterials({
     type,
     campaignId,
     tagId,
+    includeGeneral,
   });
   res.json({ success: true, data: materials });
 });
@@ -86,6 +98,7 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
     type: req.body.type || undefined,
     name: req.body.name || undefined,
     assetUrl: req.body.assetUrl || undefined,
+    general: parseBool(req.body.general),
     campaignIds: parseIdList(req.body.campaignIds),
     tagIds: parseIdList(req.body.tagIds),
   };

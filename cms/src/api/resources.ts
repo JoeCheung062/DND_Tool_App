@@ -116,6 +116,7 @@ export const materialsApi = {
     type: MaterialType;
     name: string;
     file: File;
+    general?: boolean;
     campaignIds?: string[];
     tagIds?: string[];
   }) => {
@@ -123,6 +124,7 @@ export const materialsApi = {
     formData.append("type", body.type);
     formData.append("name", body.name);
     formData.append("file", body.file);
+    formData.append("general", body.general ? "true" : "false");
     formData.append("campaignIds", JSON.stringify(body.campaignIds ?? []));
     formData.append("tagIds", JSON.stringify(body.tagIds ?? []));
     return api<Material>("/materials", { method: "POST", formData });
@@ -133,6 +135,7 @@ export const materialsApi = {
       type?: MaterialType;
       name?: string;
       file?: File;
+      general?: boolean;
       campaignIds?: string[];
       tagIds?: string[];
     }
@@ -141,6 +144,9 @@ export const materialsApi = {
     if (body.type) formData.append("type", body.type);
     if (body.name) formData.append("name", body.name);
     if (body.file) formData.append("file", body.file);
+    if (body.general !== undefined) {
+      formData.append("general", body.general ? "true" : "false");
+    }
     if (body.campaignIds) {
       formData.append("campaignIds", JSON.stringify(body.campaignIds));
     }

@@ -1,16 +1,18 @@
 import { io, type Socket } from "socket.io-client";
-import { getApiBase, getToken } from "./api";
+import { api, getApiBase, getToken } from "./api";
 import { getDisplayApi } from "./displayApi";
 
 export type MaterialPlayEvent = {
   roomId: string;
   requestId: string;
   materialId?: string;
+  materialIds?: string[];
   combinationId?: string;
   screenId?: number;
   assignments: Array<{
     screenId?: number;
     materialId?: string;
+    materialIds?: string[];
     combinationId?: string;
   }>;
   by?: { id: string; username: string };
@@ -29,8 +31,11 @@ export type SessionState = {
     bounds: { x: number; y: number; width: number; height: number };
     primary: boolean;
   }>;
+  downloaded: Array<{ id: string; name: string; type: string; localUrl: string }>;
+  downloadFailed: Array<{ id: string; error: string }>;
   lastAck?: unknown;
   lastVerify?: unknown;
+  lastAuth?: unknown;
 };
 
 function socketUrl() {
@@ -65,6 +70,7 @@ export async function connectAndEnterRoom(roomId: string): Promise<SessionState>
   const join = await new Promise<{
     ok: boolean;
     name?: string;
+    campaignId?: string | null;
     error?: string;
   }>((resolve) => {
     socket.emit("room:join", { roomId }, resolve);
@@ -72,6 +78,21 @@ export async function connectAndEnterRoom(roomId: string): Promise<SessionState>
   if (!join.ok) {
     socket.disconnect();
     throw new Error(join.error || "Failed to join room");
+  }
+
+  const room = await api.getRoom(roomId);
+  const campaignId = room.campaignId || join.campaignId;
+  let downloaded: SessionState["downloaded"] = [];
+  let downloadFailed: SessionState["downloadFailed"] = [];
+  if (campaignId) {
+    const materials = await api.listCampaignMaterials(campaignId);
+    const pack = await displayApi.downloadMaterials({
+      apiBase: getApiBase(),
+      token,
+      materials,
+    });
+    downloaded = pack.saved;
+    downloadFailed = pack.failed;
   }
 
   const opened = await displayApi.openDisplayWindows();
@@ -103,6 +124,8 @@ export async function connectAndEnterRoom(roomId: string): Promise<SessionState>
     clientId: opened.clientId || info.clientId,
     mainPid: opened.mainPid || info.mainPid,
     screens: opened.screens,
+    downloaded,
+    downloadFailed,
   };
 
   wireSessionHandlers(state);
@@ -118,15 +141,30 @@ function wireSessionHandlers(state: SessionState) {
   socket.on("material:play", async (event: MaterialPlayEvent) => {
     if (event.roomId !== roomId) return;
 
+    const library = new Map(state.downloaded.map((item) => [item.id, item]));
+    const source =
+      event.assignments && event.assignments.length > 0
+        ? event.assignments
+        : [
+            {
+              screenId: event.screenId,
+              materialId: event.materialId,
+              materialIds: event.materialIds,
+              combinationId: event.combinationId,
+            },
+          ];
     const verification = await displayApi.assignContent({
       requestId: event.requestId,
-      assignments: event.assignments ?? [
-        {
-          screenId: event.screenId,
-          materialId: event.materialId,
-          combinationId: event.combinationId,
-        },
-      ],
+      assignments: source.map((assignment) => {
+        const ids = [
+          ...(assignment.materialIds ?? []),
+          ...(assignment.materialId ? [assignment.materialId] : []),
+        ];
+        const materials = ids
+          .map((id) => library.get(id))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
+        return { ...assignment, materials };
+      }),
     });
 
     state.lastAck = verification;
@@ -138,6 +176,23 @@ function wireSessionHandlers(state: SessionState) {
       results: verification.results,
     });
   });
+
+  socket.on(
+    "display:authenticated",
+    async (payload: {
+      roomId: string;
+      requestId: string;
+      clientId?: string;
+      authenticated?: boolean;
+    }) => {
+      if (payload.roomId !== roomId) return;
+      if (payload.clientId && payload.clientId !== clientId) return;
+      state.lastAuth = payload;
+      if (payload.authenticated) {
+        await displayApi.paint(payload.requestId);
+      }
+    }
+  );
 
   socket.on(
     "display:verify",

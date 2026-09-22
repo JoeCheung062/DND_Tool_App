@@ -41,7 +41,7 @@ const token = login.token;
 
 const campaigns = await json("/campaigns", { token });
 const campaignId = campaigns[0]?.id;
-if (!campaignId) throw new Error("No campaign/script seeded");
+if (!campaignId) throw new Error("No campaign seeded");
 
 const room = await json("/rooms", {
   method: "POST",
@@ -52,6 +52,33 @@ const room = await json("/rooms", {
 const materials = await json("/materials", { token });
 const materialId = materials[0]?.id;
 if (!materialId) throw new Error("No materials seeded");
+
+const general = await json("/materials", {
+  method: "POST",
+  token,
+  body: {
+    type: "IMAGE",
+    name: `General Smoke ${Date.now()}`,
+    assetUrl: "/uploads/general-smoke.png",
+    general: true,
+    campaignIds: [],
+    tagIds: [],
+  },
+});
+const bundled = await json(
+  `/materials?campaignId=${encodeURIComponent(campaignId)}&includeGeneral=1`,
+  { token }
+);
+if (!bundled.some((row) => row.id === general.id)) {
+  throw new Error("includeGeneral did not return the General material");
+}
+const campaignOnly = await json(
+  `/materials?campaignId=${encodeURIComponent(campaignId)}`,
+  { token }
+);
+if (campaignOnly.some((row) => row.id === general.id)) {
+  throw new Error("General material leaked into campaign-only list");
+}
 
 const display = io(BASE, { path: "/socket.io", auth: { token } });
 const control = io(BASE, { path: "/socket.io", auth: { token } });
@@ -73,6 +100,15 @@ const joinCtrl = await emitAck(control, "room:join", { roomId: room.id });
 if (!joinCtrl.ok) throw new Error(joinCtrl.error);
 
 const clientId = `smoke-${Date.now()}`;
+const processToken1 = `proc-${clientId}-1`;
+const processToken2 = `proc-${clientId}-2`;
+const registryPromise = new Promise((resolve, reject) => {
+  const t = setTimeout(() => reject(new Error("registry timeout")), 5000);
+  control.once("display:registry", (payload) => {
+    clearTimeout(t);
+    resolve(payload);
+  });
+});
 const reg = await emitAck(display, "display:register", {
   roomId: room.id,
   clientId,
@@ -92,29 +128,24 @@ const reg = await emitAck(display, "display:register", {
     },
   ],
   processes: [
-    { screenId: 1, processId: 101, alive: true },
-    { screenId: 2, processId: 102, alive: true },
+    { screenId: 1, processId: 101, alive: true, processToken: processToken1 },
+    { screenId: 2, processId: 102, alive: true, processToken: processToken2 },
   ],
 });
 if (!reg.ok) throw new Error(reg.error);
+if (JSON.stringify(reg.registration).includes(processToken1)) {
+  throw new Error("process token leaked on register ack");
+}
 
-const registryPromise = new Promise((resolve, reject) => {
-  const t = setTimeout(() => reject(new Error("registry timeout")), 5000);
-  control.once("display:registry", (payload) => {
-    clearTimeout(t);
-    resolve(payload);
-  });
-});
-// trigger another register heartbeat-style registry already emitted; wait if needed
-const registry = joinCtrl.displays?.length
-  ? { displays: joinCtrl.displays }
-  : await registryPromise.catch(() => ({ displays: reg.registration ? [reg.registration] : [] }));
+const registry = await registryPromise;
 
-console.log(
-  "registered screens:",
+const registeredScreens =
   registry.displays?.[0]?.screens?.map((s) => s.id) ||
-    reg.registration.screens.map((s) => s.id)
-);
+  reg.registration.screens.map((s) => s.id);
+console.log("registered screens:", registeredScreens);
+if (JSON.stringify(registry).includes(processToken1)) {
+  throw new Error("process token leaked on display:registry");
+}
 
 const ackPromise = new Promise((resolve, reject) => {
   const t = setTimeout(() => reject(new Error("ack timeout")), 8000);
@@ -126,11 +157,21 @@ const ackPromise = new Promise((resolve, reject) => {
   });
 });
 
+const authPromise = new Promise((resolve, reject) => {
+  const t = setTimeout(() => reject(new Error("authenticated timeout")), 8000);
+  control.on("display:authenticated", (payload) => {
+    if (payload.requestId?.startsWith("smoke-")) {
+      clearTimeout(t);
+      resolve(payload);
+    }
+  });
+});
+
 const play = await emitAck(control, "material:play", {
   roomId: room.id,
   requestId: `smoke-${Date.now()}`,
   assignments: [
-    { screenId: 1, materialId },
+    { screenId: 1, materialIds: [materialId, general.id] },
     { screenId: 2, materialId },
   ],
 });
@@ -142,13 +183,23 @@ display.emit("display:ack", {
   clientId,
   requestId: play.event.requestId,
   results: [
-    { screenId: 1, ok: true, processId: 101 },
-    { screenId: 2, ok: true, processId: 102 },
+    { screenId: 1, ok: true, processId: 101, processToken: processToken1 },
+    { screenId: 2, ok: true, processId: 102, processToken: processToken2 },
   ],
 });
 
 const ack = await ackPromise;
+const auth = await authPromise;
 console.log("display:ack", ack.results);
+if (!auth.authenticated) {
+  throw new Error(`expected authenticated play, got ${JSON.stringify(auth)}`);
+}
+if (JSON.stringify(auth).includes(processToken1)) {
+  throw new Error("process token leaked on display:authenticated");
+}
+if (!ack.results?.every((row) => row.authenticated)) {
+  throw new Error("expected every screen result to be authenticated");
+}
 
 const verifyPromise = new Promise((resolve, reject) => {
   const t = setTimeout(() => reject(new Error("verify timeout")), 8000);
@@ -179,6 +230,7 @@ if (!verifyReq.ok) throw new Error(verifyReq.error);
 const verify = await verifyPromise;
 console.log("display:verify-result ok=", verify.ok);
 
+await json(`/materials/${general.id}`, { method: "DELETE", token });
 await json(`/rooms/${room.id}`, { method: "DELETE", token });
 
 display.disconnect();

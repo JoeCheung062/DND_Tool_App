@@ -56,6 +56,7 @@ export type Material = {
   id: string;
   type: "IMAGE" | "EFFECT" | "SOUND";
   name: string;
+  general?: boolean;
   assetUrl: string;
 };
 
@@ -105,5 +106,9 @@ export const api = {
       json: { name, ...(campaignId ? { campaignId } : {}) },
     }),
   listCampaigns: () => request<Campaign[]>("/campaigns"),
+  listCampaignMaterials: (campaignId: string) =>
+    request<Material[]>(
+      `/materials?campaignId=${encodeURIComponent(campaignId)}&includeGeneral=1`
+    ),
   getMaterial: (id: string) => request<Material>(`/materials/${id}`),
 };

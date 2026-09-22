@@ -10,8 +10,9 @@ export function HomePage() {
       <h1>Display App</h1>
       <p className="lede">
         Native multi-screen client for Windows, macOS, and Linux. Create a room
-        with a script, or enter an existing room — this app detects connected
-        displays and waits for Socket.IO play instructions.
+        and pick a campaign, or enter an existing room. The app detects
+        connected displays, downloads campaign and General materials, then waits
+        for authenticated Socket.IO play instructions.
       </p>
       <div className="cta-row">
         <Link className="btn" to="/create">

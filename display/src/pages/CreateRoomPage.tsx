@@ -9,7 +9,7 @@ export function CreateRoomPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [loadingScripts, setLoadingScripts] = useState(true);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -22,10 +22,10 @@ export function CreateRoomPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load scripts");
+          setError(err instanceof Error ? err.message : "Failed to load campaigns");
         }
       } finally {
-        if (!cancelled) setLoadingScripts(false);
+        if (!cancelled) setLoadingCampaigns(false);
       }
     })();
     return () => {
@@ -36,7 +36,7 @@ export function CreateRoomPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!campaignId) {
-      setError("Select a script");
+      setError("Select a campaign");
       return;
     }
     setBusy(true);
@@ -54,10 +54,10 @@ export function CreateRoomPage() {
   return (
     <section className="panel narrow">
       <p className="eyebrow">Create Room</p>
-      <h1>Set room &amp; script</h1>
+      <h1>Set room &amp; campaign</h1>
       <p className="lede">
-        Name the room, choose a script (campaign), then enter to open screen
-        windows.
+        Name the room, choose a campaign, then enter. The app detects screens
+        and downloads that campaign&apos;s materials, including General ones.
       </p>
       <form onSubmit={onSubmit} className="stack">
         <label>
@@ -71,16 +71,16 @@ export function CreateRoomPage() {
           />
         </label>
         <label>
-          Script
+          Campaign
           <select
             value={campaignId}
             onChange={(e) => setCampaignId(e.target.value)}
             required
-            disabled={loadingScripts}
+            disabled={loadingCampaigns}
           >
             {campaigns.length === 0 ? (
               <option value="">
-                {loadingScripts ? "Loading…" : "No scripts available"}
+                {loadingCampaigns ? "Loading…" : "No campaigns available"}
               </option>
             ) : (
               campaigns.map((c) => (

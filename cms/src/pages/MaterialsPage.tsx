@@ -45,6 +45,7 @@ export function MaterialsPage() {
   const [type, setType] = useState<MaterialType>("IMAGE");
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [general, setGeneral] = useState(false);
   const [campaignIds, setCampaignIds] = useState<string[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -77,6 +78,7 @@ export function MaterialsPage() {
     setType("IMAGE");
     setName("");
     setFile(null);
+    setGeneral(false);
     setCampaignIds([]);
     setTagIds([]);
     setOpen(true);
@@ -87,6 +89,7 @@ export function MaterialsPage() {
     setType(row.type);
     setName(row.name);
     setFile(null);
+    setGeneral(Boolean(row.general));
     setCampaignIds(row.campaigns?.map((c) => c.id) ?? []);
     setTagIds(row.tagList?.map((t) => t.id) ?? []);
     setOpen(true);
@@ -110,6 +113,7 @@ export function MaterialsPage() {
           type,
           name: name.trim(),
           file: file ?? undefined,
+          general,
           campaignIds,
           tagIds,
         });
@@ -118,6 +122,7 @@ export function MaterialsPage() {
           type,
           name: name.trim(),
           file: file!,
+          general,
           campaignIds,
           tagIds,
         });
@@ -260,6 +265,16 @@ export function MaterialsPage() {
               <span className="hint">Current: {editing.assetUrl}</span>
             ) : null}
             {file ? <span className="hint">Selected: {file.name}</span> : null}
+          </Field>
+          <Field label="General">
+            <label className="hint">
+              <input
+                type="checkbox"
+                checked={general}
+                onChange={(e) => setGeneral(e.target.checked)}
+              />{" "}
+              Available to every campaign
+            </label>
           </Field>
           <Field label="Presets in campaigns">
             <div className="checklist">

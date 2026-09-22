@@ -74,6 +74,10 @@ export const openApiDocument = {
           type: { type: "string", enum: ["IMAGE", "EFFECT", "SOUND"] },
           name: { type: "string" },
           assetUrl: { type: "string" },
+          general: {
+            type: "boolean",
+            description: "Available to every campaign (downloaded with each room)",
+          },
           campaignIds: {
             type: "array",
             items: { type: "string" },
@@ -376,7 +380,7 @@ export const openApiDocument = {
       get: {
         tags: ["Material"],
         security: [{ bearerAuth: [] }],
-        summary: "List materials (filter by type, campaignId, tagId)",
+        summary: "List materials (filter by type, campaignId, tagId, includeGeneral)",
         responses: { "200": { description: "Materials" } },
       },
       post: {

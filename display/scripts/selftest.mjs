@@ -3,6 +3,7 @@
  * (no Electron GUI required).
  */
 import assert from "node:assert/strict";
+import { containRect, layoutCanvasLayers } from "../src/lib/canvasLayers.ts";
 
 function routeAssignments(openScreenIds, assignments) {
   const results = [];
@@ -63,5 +64,25 @@ const unhealthy = verifyProcesses([
 ]);
 assert.equal(unhealthy.ok, false);
 assert.deepEqual(unhealthy.dead, [2]);
+
+const layers = layoutCanvasLayers([
+  { id: "img", type: "IMAGE", name: "Map", localUrl: "local-material://img" },
+  { id: "fx", type: "effect", name: "Smoke", localUrl: "local-material://fx" },
+  { id: "snd", type: "SOUND", name: "Fire", localUrl: "local-material://snd" },
+]);
+assert.deepEqual(
+  layers.map((layer) => [layer.kind, layer.alpha]),
+  [
+    ["image", 1],
+    ["effect", 0.65],
+    ["sound", 0],
+  ]
+);
+
+const fitted = containRect(200, 100, 100, 100);
+assert.equal(fitted.width, 100);
+assert.equal(fitted.height, 50);
+assert.equal(fitted.x, 0);
+assert.equal(fitted.y, 25);
 
 console.log("display selftest: ok");

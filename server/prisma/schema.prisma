@@ -106,6 +106,8 @@ model Material {
   /// IMAGE | EFFECT | SOUND
   type      MaterialType
   name      String
+  /// Available to every campaign (downloaded with any room's campaign)
+  general   Boolean  @default(false)
   /// URL or path to the image / effect / sound file
   assetUrl  String
   createdAt DateTime     @default(now())

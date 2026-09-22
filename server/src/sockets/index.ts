@@ -31,6 +31,8 @@ export type DisplayRegistration = {
     processId: number;
     webContentsId?: number;
     alive: boolean;
+    /** Secret proving this screen process; never rebroadcast */
+    processToken?: string;
   }>;
   updatedAt: string;
 };
@@ -49,6 +51,73 @@ function roomDisplays(roomId: string) {
 
 function listDisplays(roomId: string) {
   return [...roomDisplays(roomId).values()];
+}
+
+function withoutProcessTokens(
+  processes: DisplayRegistration["processes"]
+) {
+  return processes.map(({ processToken: _token, ...rest }) => rest);
+}
+
+function mergeProcessSecrets(
+  previous: DisplayRegistration["processes"],
+  incoming: DisplayRegistration["processes"] | undefined
+) {
+  if (!incoming) return previous;
+  return incoming.map((row) => {
+    if (row.processToken) return row;
+    const known = previous.find((process) => process.screenId === row.screenId);
+    return known?.processToken
+      ? { ...row, processToken: known.processToken }
+      : row;
+  });
+}
+
+function publicDisplays(roomId: string) {
+  return listDisplays(roomId).map((display) => ({
+    ...display,
+    processes: withoutProcessTokens(display.processes),
+  }));
+}
+
+function authenticateDisplayProcesses(
+  roomId: string,
+  clientId: string | undefined,
+  results: Array<{
+    screenId: number;
+    ok: boolean;
+    processId?: number;
+    processToken?: string;
+    error?: string;
+  }>
+) {
+  const registration = clientId
+    ? roomDisplays(roomId).get(clientId)
+    : undefined;
+  const checked = results.map((result) => {
+    const known = registration?.processes.find(
+      (process) => process.screenId === result.screenId
+    );
+    const authenticated = Boolean(
+      known?.processToken &&
+        result.processToken &&
+        known.processToken === result.processToken
+    );
+    return {
+      screenId: result.screenId,
+      processId: result.processId,
+      ok: result.ok && authenticated,
+      authenticated,
+      error: authenticated
+        ? result.error
+        : "Process authentication failed",
+      processToken: result.processToken,
+    };
+  });
+  return {
+    ok: checked.length > 0 && checked.every((row) => row.authenticated),
+    results: checked,
+  };
 }
 
 export function createSocketServer(httpServer: HttpServer) {
@@ -114,7 +183,7 @@ export function createSocketServer(httpServer: HttpServer) {
           name: room.name,
           campaignId: room.campaignId,
           campaign: room.campaign,
-          displays: listDisplays(roomId),
+          displays: publicDisplays(roomId),
         });
       } catch (err) {
         ack?.({ ok: false, error: err instanceof Error ? err.message : "join failed" });
@@ -184,10 +253,16 @@ export function createSocketServer(httpServer: HttpServer) {
 
           io.to(roomKey).emit("display:registry", {
             roomId,
-            displays: listDisplays(roomId),
+            displays: publicDisplays(roomId),
           });
 
-          ack?.({ ok: true, registration });
+          ack?.({
+            ok: true,
+            registration: {
+              ...registration,
+              processes: withoutProcessTokens(registration.processes),
+            },
+          });
         } catch (err) {
           ack?.({
             ok: false,
@@ -217,7 +292,7 @@ export function createSocketServer(httpServer: HttpServer) {
           if (!existing || existing.socketId !== socket.id) {
             throw new Error("Display client not registered");
           }
-          existing.processes = processes ?? existing.processes;
+          existing.processes = mergeProcessSecrets(existing.processes, processes);
           if (typeof mainPid === "number") existing.mainPid = mainPid;
           existing.updatedAt = new Date().toISOString();
           map.set(clientId, existing);
@@ -225,7 +300,7 @@ export function createSocketServer(httpServer: HttpServer) {
           socket.to(`room:${roomId}`).emit("display:heartbeat", {
             roomId,
             clientId,
-            processes: existing.processes,
+            processes: withoutProcessTokens(existing.processes),
             mainPid: existing.mainPid,
             at: existing.updatedAt,
           });
@@ -295,7 +370,7 @@ export function createSocketServer(httpServer: HttpServer) {
           const map = roomDisplays(roomId);
           const existing = map.get(clientId);
           if (existing && existing.socketId === socket.id) {
-            existing.processes = processes ?? existing.processes;
+            existing.processes = mergeProcessSecrets(existing.processes, processes);
             if (typeof mainPid === "number") existing.mainPid = mainPid;
             existing.updatedAt = new Date().toISOString();
             map.set(clientId, existing);
@@ -307,7 +382,9 @@ export function createSocketServer(httpServer: HttpServer) {
             challengeId,
             ok: ok !== false,
             mainPid,
-            processes: processes ?? existing?.processes ?? [],
+            processes: withoutProcessTokens(
+              existing?.processes ?? processes ?? []
+            ),
             at: new Date().toISOString(),
           };
 
@@ -347,14 +424,24 @@ export function createSocketServer(httpServer: HttpServer) {
           if (!roomId || !requestId) {
             throw new Error("roomId and requestId are required");
           }
+          const auth = authenticateDisplayProcesses(
+            roomId,
+            clientId,
+            results ?? []
+          );
+          const publicResults = auth.results.map(
+            ({ processToken: _token, ...rest }) => rest
+          );
           const event = {
             roomId,
             clientId,
             requestId,
-            results: results ?? [],
+            authenticated: auth.ok,
+            results: publicResults,
             at: new Date().toISOString(),
           };
           io.to(`room:${roomId}`).emit("display:ack", event);
+          io.to(`room:${roomId}`).emit("display:authenticated", event);
           ack?.({ ok: true, event });
         } catch (err) {
           ack?.({
@@ -452,6 +539,7 @@ export function createSocketServer(httpServer: HttpServer) {
           assignments?: Array<{
             screenId: number;
             materialId?: string;
+            materialIds?: string[];
             combinationId?: string;
           }>;
           requestId?: string;
@@ -477,6 +565,7 @@ export function createSocketServer(httpServer: HttpServer) {
                     {
                       screenId: screenId as number | undefined,
                       materialId,
+                      materialIds: materialId ? [materialId] : undefined,
                       combinationId,
                     },
                   ]
@@ -489,9 +578,13 @@ export function createSocketServer(httpServer: HttpServer) {
           }
 
           for (const a of resolvedAssignments) {
-            if (!a.materialId && !a.combinationId) {
+            if (
+              !a.materialId &&
+              !a.combinationId &&
+              !(a.materialIds && a.materialIds.length > 0)
+            ) {
               throw new Error(
-                "Each assignment needs materialId or combinationId"
+                "Each assignment needs materialId, materialIds, or combinationId"
               );
             }
           }
@@ -569,7 +662,7 @@ function unregisterDisplay(
 
   socket.to(`room:${roomId}`).emit("display:registry", {
     roomId,
-    displays: listDisplays(roomId),
+    displays: publicDisplays(roomId),
   });
 }
 

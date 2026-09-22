@@ -1,19 +1,33 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-function readScreenIdFromArgv(): number | null {
-  const arg = process.argv.find((a) => a.startsWith("--screen-id="));
+function readArg(prefix: string): string | null {
+  const arg = process.argv.find((entry) => entry.startsWith(prefix));
   if (!arg) return null;
-  const n = Number(arg.split("=")[1]);
-  return Number.isFinite(n) ? n : null;
+  const value = arg.slice(prefix.length);
+  return value.length > 0 ? value : null;
 }
 
-const screenIdFromArgv = readScreenIdFromArgv();
+const screenIdFromArgv = (() => {
+  const raw = readArg("--screen-id=");
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+})();
+
+export type DisplayMaterial = {
+  id: string;
+  type: string;
+  name: string;
+  localUrl: string;
+};
 
 const displayViewApi = {
   getScreenId: () => {
-    const params = new URLSearchParams(window.location.search);
+    const search =
+      (globalThis as { location?: { search?: string } }).location?.search ?? "";
+    const params = new URLSearchParams(search);
     const fromQuery = Number(params.get("screenId"));
-    if (Number.isFinite(fromQuery)) return fromQuery;
+    if (Number.isFinite(fromQuery) && params.has("screenId")) return fromQuery;
     return screenIdFromArgv;
   },
   onShow: (
@@ -22,6 +36,7 @@ const displayViewApi = {
       screenId: number;
       materialId?: string;
       combinationId?: string;
+      materials?: DisplayMaterial[];
       content?: unknown;
       replyChannel: string;
     }) => void
@@ -33,12 +48,19 @@ const displayViewApi = {
         screenId: number;
         materialId?: string;
         combinationId?: string;
+        materials?: DisplayMaterial[];
         content?: unknown;
         replyChannel: string;
       }
     ) => cb(payload);
     ipcRenderer.on("display:show", listener);
     return () => ipcRenderer.removeListener("display:show", listener);
+  },
+  onPaint: (cb: (payload: { requestId: string }) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, payload: { requestId: string }) =>
+      cb(payload);
+    ipcRenderer.on("display:paint", listener);
+    return () => ipcRenderer.removeListener("display:paint", listener);
   },
   ackApplied: (payload: {
     replyChannel: string;
