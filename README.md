@@ -122,17 +122,19 @@ npm run db:tables
 
 CRUD = `GET /`, `POST /`, `GET /:id`, `PATCH /:id`, `DELETE /:id`.
 
-### Material example
+### Material example (multipart file upload)
 
-```json
-{
-  "type": "IMAGE",
-  "name": "Tavern Background",
-  "assetUrl": "/uploads/tavern.png",
-  "campaignIds": ["campaign_cuid_1", "campaign_cuid_2"],
-  "tagIds": ["tag_cuid_1"]
-}
+```bash
+curl -X POST http://localhost:3000/api/materials \
+  -H "Authorization: Bearer <JWT>" \
+  -F "type=IMAGE" \
+  -F "name=Tavern Background" \
+  -F "campaignIds=[\"campaign_id\"]" \
+  -F "tagIds=[\"tag_id\"]" \
+  -F "file=@./tavern.png"
 ```
+
+In the CMS Materials page, choose a file with the upload control (no URL needed).
 
 ### Combination example
 
