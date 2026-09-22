@@ -476,7 +476,7 @@ export const openApiDocument = {
     {
       name: "Socket.IO",
       description:
-        "Auth via `auth.token`. Events: `room:join`, `room:leave`, `chat:message`, `dice:roll`, `material:play`.",
+        "Auth via `auth.token`. Events: `room:join`, `room:leave`, `chat:message`, `dice:roll`, `material:play` (optional per-screen `assignments`), `display:register`, `display:heartbeat`, `display:verify`, `display:verify-result`, `display:ack`.",
     },
   ],
 } as const;

@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import swaggerUi from "swagger-ui-express";
+import { corsOriginOption } from "./config/cors.js";
 import { env } from "./config/env.js";
 import { openApiDocument } from "./docs/openapi.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
@@ -15,7 +16,7 @@ export function createApp() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(
     cors({
-      origin: env.CLIENT_ORIGIN,
+      origin: corsOriginOption(),
       credentials: true,
     })
   );

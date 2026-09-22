@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-electron/
 uploads/*
 !uploads/.gitkeep
 .env
@@ -9,3 +10,5 @@ uploads/*
 coverage/
 .idea/
 .vscode/
+display/release/
+tsconfig.tsbuildinfo

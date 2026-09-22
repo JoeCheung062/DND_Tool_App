@@ -22,10 +22,15 @@ enum MaterialType {
 }
 
 model Room {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(cuid())
+  name       String
+  /// Selected script (Campaign) for this play session
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([campaignId])
 }
 
 model Campaign {
@@ -36,6 +41,8 @@ model Campaign {
 
   /// Materials preset into this campaign (many-to-many)
   materialPresets MaterialCampaignPreset[]
+  /// Rooms using this campaign as their script
+  rooms           Room[]
 }
 
 /// Player / table users — no login credentials (cannot sign in)

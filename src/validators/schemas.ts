@@ -58,10 +58,13 @@ export const updateUserProfileSchema = z.object({
 // ── Room ─────────────────────────────────────────────────────────
 export const createRoomSchema = z.object({
   name: z.string().min(1).max(100),
+  /** Selected script (Campaign id) */
+  campaignId: z.string().min(1).optional(),
 });
 
 export const updateRoomSchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  campaignId: z.string().min(1).nullable().optional(),
 });
 
 // ── Campaign ─────────────────────────────────────────────────────

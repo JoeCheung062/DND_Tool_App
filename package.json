@@ -26,7 +26,13 @@
     "cms:dev": "npm run dev --prefix cms",
     "cms:build": "npm run build --prefix cms",
     "cms:preview": "npm run preview --prefix cms",
-    "cms:install": "npm install --prefix cms"
+    "cms:install": "npm install --prefix cms",
+    "display:install": "npm install --prefix display",
+    "display:dev": "npm run dev --prefix display",
+    "display:electron": "npm run dev:electron --prefix display",
+    "display:build": "npm run build --prefix display",
+    "display:test": "npm run test:logic --prefix display",
+    "test:display-socket": "node scripts/display-socket-smoke.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

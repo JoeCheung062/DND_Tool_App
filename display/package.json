@@ -1,0 +1,35 @@
+{
+  "name": "dnd-display",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DND Display App — Electron multi-screen room display client",
+  "main": "dist-electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "node scripts/dev.mjs",
+    "build": "tsc -b && vite build && node scripts/build-electron.mjs",
+    "build:renderer": "tsc -b && vite build",
+    "build:electron": "node scripts/build-electron.mjs",
+    "start": "electron .",
+    "typecheck": "tsc -b --noEmit",
+    "test:logic": "node --import tsx scripts/selftest.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^35.1.2",
+    "esbuild": "^0.27.0",
+    "tsx": "^4.19.3",
+    "typescript": "~5.8.2",
+    "vite": "^8.3.0"
+  }
+}
