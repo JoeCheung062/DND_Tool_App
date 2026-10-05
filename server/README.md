@@ -68,9 +68,9 @@ npm run dev
 # Terminal 2 — CMS
 npm run cms:dev
 
-# Terminal 3 — Display desktop app (Electron)
-npm run display:install
-npm run display:dev
+# Terminal 3 — Desktop app (Electron)
+npm run app:install
+npm run app:dev
 ```
 
 - API: `http://localhost:3000/api`
@@ -79,18 +79,18 @@ npm run display:dev
   - `dm@example.com` / `password123` (DM)
   - `admin@example.com` / `password123` (Admin)
   - `super@example.com` / `password123` (Super Admin)
-- Display: **Electron desktop app** (Windows / macOS / Linux) — see `../display/README.md`
+- Desktop app: **Electron** (Windows / macOS / Linux) — Display Mode or Control Mode after sign-in. See `../app/README.md`
 
-### Display App (Electron desktop)
+### Desktop app (Electron)
 
-Native multi-screen client — **not a website**. **Home → Create Room / Enter Room**. Create selects a **script** (Campaign), then enter detects screen IDs, registers them over Socket.IO, and applies `material:play` assignments with process verification (`display:ack` / `display:verify`).
+Native client — **not a website**. Sign in, then choose Display Mode or Control Mode. Display detects screen IDs, downloads campaign and General materials, and paints after process authentication. Control sends `material:play` to those screens.
 
 ```bash
-npm run display:install
-npm run display:dev        # launches Electron desktop app
-npm run display:pack       # unpackaged build for current OS
-npm run display:dist       # platform installers (AppImage/deb, exe, dmg)
-npm run display:test       # routing/verification self-test
+npm run app:install
+npm run app:dev        # launches Electron desktop app
+npm run app:pack       # unpackaged build for current OS
+npm run app:dist       # platform installers (AppImage/deb, exe, dmg)
+npm run app:test       # routing/verification self-test
 ```
 
 ### Database not reachable (`localhost:5432`)
@@ -187,8 +187,8 @@ socket.emit("dice:roll", { roomId, expression: "2d6+3" }, console.log);
 socket.emit("material:play", { roomId, materialId }, console.log);
 ```
 
-## CMS and Display
+## CMS and desktop app
 
-Those apps live next to this folder (`../cms`, `../display`). Start them from the repository root with `npm run cms:dev` and `npm run display:dev`. This API must be listening on port 3000 first. The CMS proxies `/api` to it.
+Those apps live next to this folder (`../cms`, `../app`). Start them from the repository root with `npm run cms:dev` and `npm run app:dev`. This API must be listening on port 3000 first. The CMS proxies `/api` to it.
 
 Sign in with `dm@example.com` / `password123`.

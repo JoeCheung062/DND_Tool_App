@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/AppError.js";
 import type { CreateRoomInput, UpdateRoomInput } from "../validators/schemas.js";
@@ -47,9 +48,16 @@ export async function updateRoom(id: string, input: UpdateRoomInput) {
   if (input.campaignId !== undefined) {
     await assertCampaign(input.campaignId);
   }
+  const data: Prisma.RoomUncheckedUpdateInput = {};
+  if (input.name !== undefined) data.name = input.name;
+  if (input.campaignId !== undefined) data.campaignId = input.campaignId;
+  if (input.session !== undefined) {
+    data.session =
+      input.session === null ? Prisma.JsonNull : (input.session as Prisma.InputJsonValue);
+  }
   return prisma.room.update({
     where: { id },
-    data: input,
+    data,
     include: roomInclude,
   });
 }

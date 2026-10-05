@@ -40,6 +40,105 @@ export type DisplayRegistration = {
 /** In-memory display client registry per room */
 const displayRegistry = new Map<string, Map<string, DisplayRegistration>>();
 
+type MaterialOffer = {
+  socketId: string;
+  roomId: string;
+  port: number;
+  token: string;
+  hosts: string[];
+  materials: Array<{ id: string; name: string; type: string }>;
+};
+
+/** Control Mode's LAN material share for a room, used when Display cannot reach this server. */
+const materialOffers = new Map<string, MaterialOffer>();
+const displayDropTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const offerDropTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function cancelDisplayDrop(roomId: string, clientId: string) {
+  const key = `${roomId}:${clientId}`;
+  const timer = displayDropTimers.get(key);
+  if (!timer) return;
+  clearTimeout(timer);
+  displayDropTimers.delete(key);
+}
+
+function scheduleDisplayDrop(socket: Socket, roomId: string, clientId: string) {
+  cancelDisplayDrop(roomId, clientId);
+  const socketId = socket.id;
+  const key = `${roomId}:${clientId}`;
+  displayDropTimers.set(
+    key,
+    setTimeout(() => {
+      displayDropTimers.delete(key);
+      const existing = displayRegistry.get(roomId)?.get(clientId);
+      if (!existing || existing.socketId !== socketId) return;
+      unregisterDisplay(socket, roomId, clientId);
+    }, 8000)
+  );
+}
+
+function scheduleOfferDrop(socketId: string, roomId: string) {
+  const pending = offerDropTimers.get(roomId);
+  if (pending) clearTimeout(pending);
+  offerDropTimers.set(
+    roomId,
+    setTimeout(() => {
+      offerDropTimers.delete(roomId);
+      const current = materialOffers.get(roomId);
+      if (current && current.socketId === socketId) materialOffers.delete(roomId);
+    }, 8000)
+  );
+}
+
+function publicMaterialOffer(roomId: string) {
+  const offer = materialOffers.get(roomId);
+  if (!offer) return null;
+  return {
+    roomId: offer.roomId,
+    port: offer.port,
+    token: offer.token,
+    hosts: offer.hosts,
+    materials: offer.materials,
+  };
+}
+
+function parseMaterialOffer(
+  socketId: string,
+  payload: {
+    roomId?: string;
+    port?: number;
+    token?: string;
+    hosts?: string[];
+    materials?: Array<{ id?: string; name?: string; type?: string }>;
+  }
+): MaterialOffer {
+  const roomId = payload.roomId?.trim();
+  if (!roomId) throw new Error("roomId is required");
+  if (!payload.port || payload.port < 1 || payload.port > 65535) {
+    throw new Error("port is required");
+  }
+  if (!payload.token || payload.token.length < 8) {
+    throw new Error("token is required");
+  }
+  const hosts = (payload.hosts ?? []).filter(
+    (host) => typeof host === "string" && /^[A-Za-z0-9.:-]+$/.test(host)
+  );
+  if (hosts.length === 0) throw new Error("hosts[] is required");
+  const materials = (payload.materials ?? []).flatMap((material) => {
+    if (!material?.id || !material.name || !material.type) return [];
+    return [{ id: material.id, name: material.name, type: material.type }];
+  });
+  if (materials.length === 0) throw new Error("materials[] is required");
+  return {
+    socketId,
+    roomId,
+    port: payload.port,
+    token: payload.token,
+    hosts,
+    materials,
+  };
+}
+
 function roomDisplays(roomId: string) {
   let map = displayRegistry.get(roomId);
   if (!map) {
@@ -127,6 +226,12 @@ export function createSocketServer(httpServer: HttpServer) {
       credentials: true,
     },
     path: "/socket.io",
+    pingInterval: 20000,
+    pingTimeout: 25000,
+    connectionStateRecovery: {
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      skipMiddlewares: false,
+    },
   });
 
   io.use((socket, next) => {
@@ -184,6 +289,7 @@ export function createSocketServer(httpServer: HttpServer) {
           campaignId: room.campaignId,
           campaign: room.campaign,
           displays: publicDisplays(roomId),
+          materialSource: publicMaterialOffer(roomId),
         });
       } catch (err) {
         ack?.({ ok: false, error: err instanceof Error ? err.message : "join failed" });
@@ -206,6 +312,65 @@ export function createSocketServer(httpServer: HttpServer) {
       });
       ack?.({ ok: true });
     });
+
+    /**
+     * Control Mode announces a LAN address where it is serving downloaded materials.
+     * Display Mode uses this when it cannot download those files from this server.
+     */
+    socket.on(
+      "control:materials-offer",
+      (
+        payload: {
+          roomId?: string;
+          port?: number;
+          token?: string;
+          hosts?: string[];
+          materials?: Array<{ id?: string; name?: string; type?: string }>;
+        },
+        ack?
+      ) => {
+        try {
+          const offer = parseMaterialOffer(socket.id, payload ?? {});
+          const roomKey = `room:${offer.roomId}`;
+          if (!socket.rooms.has(roomKey)) throw new Error("Join the room first");
+          const pendingOfferDrop = offerDropTimers.get(offer.roomId);
+          if (pendingOfferDrop) {
+            clearTimeout(pendingOfferDrop);
+            offerDropTimers.delete(offer.roomId);
+          }
+          materialOffers.set(offer.roomId, offer);
+          const published = publicMaterialOffer(offer.roomId);
+          io.to(roomKey).emit("control:materials", published);
+          ack?.({ ok: true, offer: published });
+        } catch (err) {
+          ack?.({
+            ok: false,
+            error: err instanceof Error ? err.message : "offer failed",
+          });
+        }
+      }
+    );
+
+    socket.on(
+      "materials:fetch-source",
+      (payload: { roomId?: string }, ack?) => {
+        try {
+          const roomId = payload?.roomId;
+          if (!roomId) throw new Error("roomId is required");
+          if (!socket.rooms.has(`room:${roomId}`)) {
+            throw new Error("Join the room first");
+          }
+          const offer = publicMaterialOffer(roomId);
+          if (!offer) throw new Error("Control Mode has not shared materials");
+          ack?.({ ok: true, offer });
+        } catch (err) {
+          ack?.({
+            ok: false,
+            error: err instanceof Error ? err.message : "fetch failed",
+          });
+        }
+      }
+    );
 
     /**
      * Display App registers detected screens + process map after entering a room.
@@ -246,6 +411,7 @@ export function createSocketServer(httpServer: HttpServer) {
             updatedAt: new Date().toISOString(),
           };
 
+          cancelDisplayDrop(roomId, clientId);
           roomDisplays(roomId).set(clientId, registration);
           const data = socket.data as SocketData;
           data.displayClientId = clientId;
@@ -271,6 +437,27 @@ export function createSocketServer(httpServer: HttpServer) {
         }
       }
     );
+
+    /** Current Display Mode clients in the room. Control polls this so a missed push still shows up. */
+    socket.on("display:list", (payload: { roomId?: string }, ack?) => {
+      try {
+        const roomId = payload?.roomId;
+        if (!roomId) throw new Error("roomId is required");
+        if (!socket.rooms.has(`room:${roomId}`)) {
+          throw new Error("Join the room first");
+        }
+        ack?.({
+          ok: true,
+          roomId,
+          displays: publicDisplays(roomId),
+        });
+      } catch (err) {
+        ack?.({
+          ok: false,
+          error: err instanceof Error ? err.message : "list failed",
+        });
+      }
+    });
 
     /** Heartbeat / process verification update from Display App */
     socket.on(
@@ -525,6 +712,258 @@ export function createSocketServer(httpServer: HttpServer) {
     );
 
     /**
+     * Play or switch BGM and one-shot effects on Display Mode speakers.
+     * Display clients apply the command from their own downloaded files.
+     */
+    socket.on(
+      "sound:play",
+      (
+        payload: {
+          roomId?: string;
+          requestId?: string;
+          channel?: string;
+          action?: string;
+          materialId?: string;
+          volume?: number;
+          gain?: number;
+          position?: number;
+          targets?: Array<{ clientId?: string; screenId?: number }>;
+        },
+        ack?
+      ) => {
+        try {
+          const { roomId, channel, action, materialId, volume, gain, position, targets, requestId } =
+            payload ?? {};
+          if (!roomId) throw new Error("roomId is required");
+          if (!socket.rooms.has(`room:${roomId}`)) {
+            throw new Error("Join the room first");
+          }
+          if (channel !== "bgm" && channel !== "effect") {
+            throw new Error("channel must be bgm or effect");
+          }
+          if (
+            action !== "play" &&
+            action !== "pause" &&
+            action !== "stop" &&
+            action !== "seek" &&
+            action !== "volume"
+          ) {
+            throw new Error("action must be play, pause, stop, seek, or volume");
+          }
+          if (action === "play" && !materialId) {
+            throw new Error("materialId is required");
+          }
+          const at = Number(position);
+          const seekTo = Number.isFinite(at) && at >= 0 ? at : undefined;
+          if (action === "seek" && seekTo === undefined) {
+            throw new Error("position is required");
+          }
+          const speakers = (targets ?? []).flatMap((target) => {
+            if (!target?.clientId || typeof target.screenId !== "number") return [];
+            return [{ clientId: target.clientId, screenId: target.screenId }];
+          });
+          if (speakers.length === 0) {
+            throw new Error("No Display Mode speakers are connected");
+          }
+          const level = Math.min(1, Math.max(0, Number(volume)));
+          const output = Math.min(1, Math.max(0, Number(gain)));
+          const event = {
+            roomId,
+            requestId: requestId ?? randomUUID(),
+            channel,
+            action,
+            materialId,
+            volume: Number.isFinite(level) ? level : 1,
+            ...(Number.isFinite(output) ? { gain: output } : {}),
+            ...(seekTo !== undefined ? { position: seekTo } : {}),
+            targets: speakers,
+            at: new Date().toISOString(),
+          };
+          io.to(`room:${roomId}`).emit("sound:play", event);
+          ack?.({ ok: true, event });
+        } catch (err) {
+          ack?.({
+            ok: false,
+            error: err instanceof Error ? err.message : "sound failed",
+          });
+        }
+      }
+    );
+
+    /**
+     * Initiative order for every Display Mode screen in the room.
+     */
+    socket.on(
+      "initiative:update",
+      (
+        payload: {
+          roomId?: string;
+          board?: {
+            entries?: Array<{
+              id?: string;
+              name?: string;
+              speed?: number;
+              visible?: boolean;
+              maxHp?: number;
+              hp?: number;
+              hpVisible?: boolean;
+            }>;
+            turnId?: string | null;
+            barVisible?: boolean;
+          };
+        },
+        ack?
+      ) => {
+        try {
+          const { roomId, board } = payload ?? {};
+          if (!roomId) throw new Error("roomId is required");
+          if (!socket.rooms.has(`room:${roomId}`)) throw new Error("Join the room first");
+          const entries = (board?.entries ?? []).slice(0, 40).flatMap((entry) => {
+            const name = String(entry?.name ?? "").trim().slice(0, 40);
+            const speed = Number(entry?.speed);
+            const id = String(entry?.id ?? "").trim().slice(0, 80);
+            if (!id || !name || !Number.isFinite(speed)) return [];
+            const maxHp = Number(entry?.maxHp);
+            const hp = Number(entry?.hp);
+            const cappedMax = Number.isFinite(maxHp) && maxHp > 0 ? Math.min(9999, Math.round(maxHp)) : 0;
+            const cappedHp = cappedMax > 0 ? Math.min(cappedMax, Math.max(0, Math.round(Number.isFinite(hp) ? hp : 0))) : 0;
+            return [
+              {
+                id,
+                name,
+                speed,
+                visible: entry?.visible !== false,
+                maxHp: cappedMax,
+                hp: cappedHp,
+                hpVisible: entry?.hpVisible === true,
+              },
+            ];
+          });
+          const turnId = entries.some((entry) => entry.id === board?.turnId) ? board?.turnId ?? null : null;
+          const event = {
+            roomId,
+            board: {
+              entries,
+              turnId,
+              barVisible: board?.barVisible !== false,
+            },
+          };
+          io.to(`room:${roomId}`).emit("initiative:update", event);
+          ack?.({ ok: true });
+        } catch (err) {
+          ack?.({
+            ok: false,
+            error: err instanceof Error ? err.message : "initiative failed",
+          });
+        }
+      }
+    );
+
+    /**
+     * Move the map camera on one display without replaying materials.
+     */
+    socket.on(
+      "map:camera",
+      (
+        payload: {
+          roomId?: string;
+          clientId?: string;
+          screenId?: number;
+          map?: { columns?: number; rows?: number; focusCol?: number; focusRow?: number; zoom?: number };
+        },
+        ack?
+      ) => {
+        try {
+          const { roomId, clientId, screenId, map } = payload ?? {};
+          if (!roomId) throw new Error("roomId is required");
+          if (!socket.rooms.has(`room:${roomId}`)) throw new Error("Join the room first");
+          if (!clientId || typeof screenId !== "number") throw new Error("screen target is required");
+          const columns = Number(map?.columns);
+          const rows = Number(map?.rows);
+          const focusCol = Number(map?.focusCol);
+          const focusRow = Number(map?.focusRow);
+          const zoom = Number(map?.zoom);
+          if (![columns, rows, focusCol, focusRow, zoom].every((value) => Number.isFinite(value))) {
+            throw new Error("map frame is required");
+          }
+          io.to(`room:${roomId}`).emit("map:camera", {
+            roomId,
+            clientId,
+            screenId,
+            map: { columns, rows, focusCol, focusRow, zoom },
+          });
+          ack?.({ ok: true });
+        } catch (err) {
+          ack?.({
+            ok: false,
+            error: err instanceof Error ? err.message : "map camera failed",
+          });
+        }
+      }
+    );
+
+    /**
+     * A cell measurement on the map screen. Display Mode draws the same shape.
+     */
+    socket.on(
+      "map:measure",
+      (
+        payload: {
+          roomId?: string;
+          clientId?: string;
+          screenId?: number;
+          measure?: {
+            mode?: string;
+            startCol?: number;
+            startRow?: number;
+            endCol?: number;
+            endRow?: number;
+          } | null;
+        },
+        ack?
+      ) => {
+        try {
+          const { roomId, clientId, screenId, measure } = payload ?? {};
+          if (!roomId) throw new Error("roomId is required");
+          if (!socket.rooms.has(`room:${roomId}`)) throw new Error("Join the room first");
+          if (!clientId || typeof screenId !== "number") throw new Error("screen target is required");
+          if (!measure) {
+            io.to(`room:${roomId}`).emit("map:measure", {
+              roomId,
+              clientId,
+              screenId,
+              measure: null,
+            });
+            ack?.({ ok: true });
+            return;
+          }
+          if (measure.mode !== "line" && measure.mode !== "circle" && measure.mode !== "square") {
+            throw new Error("measure mode must be line, circle, or square");
+          }
+          const startCol = Number(measure.startCol);
+          const startRow = Number(measure.startRow);
+          const endCol = Number(measure.endCol);
+          const endRow = Number(measure.endRow);
+          if (![startCol, startRow, endCol, endRow].every((value) => Number.isFinite(value))) {
+            throw new Error("measure cells are required");
+          }
+          io.to(`room:${roomId}`).emit("map:measure", {
+            roomId,
+            clientId,
+            screenId,
+            measure: { mode: measure.mode, startCol, startRow, endCol, endRow },
+          });
+          ack?.({ ok: true });
+        } catch (err) {
+          ack?.({
+            ok: false,
+            error: err instanceof Error ? err.message : "map measure failed",
+          });
+        }
+      }
+    );
+
+    /**
      * Play material/combination on specific screen(s).
      * Prefer `assignments` for multi-screen routing; falls back to single screenId.
      */
@@ -581,7 +1020,7 @@ export function createSocketServer(httpServer: HttpServer) {
             if (
               !a.materialId &&
               !a.combinationId &&
-              !(a.materialIds && a.materialIds.length > 0)
+              !Array.isArray(a.materialIds)
             ) {
               throw new Error(
                 "Each assignment needs materialId, materialIds, or combinationId"
@@ -619,7 +1058,10 @@ export function createSocketServer(httpServer: HttpServer) {
     socket.on("disconnect", () => {
       const data = socket.data as SocketData;
       if (data.displayRoomId && data.displayClientId) {
-        unregisterDisplay(socket, data.displayRoomId, data.displayClientId);
+        scheduleDisplayDrop(socket, data.displayRoomId, data.displayClientId);
+      }
+      for (const [roomId, offer] of materialOffers) {
+        if (offer.socketId === socket.id) scheduleOfferDrop(socket.id, roomId);
       }
 
       for (const room of socket.rooms) {

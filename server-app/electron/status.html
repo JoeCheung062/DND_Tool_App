@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DND Server</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+        background: #0b1016;
+        color: #e8eef6;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(900px 400px at 10% -10%, rgba(61, 214, 198, 0.18), transparent 55%),
+          #0b1016;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem;
+      }
+      h1 {
+        font-weight: 650;
+        letter-spacing: -0.03em;
+        margin-bottom: 0.4rem;
+      }
+      p {
+        line-height: 1.5;
+        color: #9aabbd;
+      }
+      .status {
+        margin-top: 1.5rem;
+        padding: 1rem 1.1rem;
+        border: 1px solid rgba(232, 238, 246, 0.12);
+        border-radius: 12px;
+        background: rgba(20, 28, 38, 0.9);
+        color: #e8eef6;
+      }
+      .status.error {
+        border-color: rgba(255, 123, 114, 0.45);
+      }
+      .status.ready {
+        border-color: rgba(61, 214, 198, 0.45);
+      }
+      ul {
+        padding-left: 1.1rem;
+      }
+      a {
+        color: #3dd6c6;
+      }
+      pre {
+        white-space: pre-wrap;
+        color: #9aabbd;
+        font-size: 0.82rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>DND Server</p>
+      <h1>Local API, CMS, and database</h1>
+      <p>
+        Leave this app open on the computer that should host the backend. DND App
+        on this network finds this computer automatically.
+      </p>
+      <div id="status" class="status">Starting…</div>
+      <div id="links"></div>
+      <pre id="log"></pre>
+    </main>
+    <script>
+      const status = document.getElementById("status");
+      const links = document.getElementById("links");
+      const log = document.getElementById("log");
+      window.serverHost.onStatus((payload) => {
+        status.textContent = payload.message;
+        status.className = "status " + (payload.state || "");
+        links.innerHTML = (payload.urls || [])
+          .map((url) => "<p><a href=\"" + url + "\">" + url + "</a></p>")
+          .join("");
+        log.textContent = payload.log || "";
+      });
+    </script>
+  </body>
+</html>

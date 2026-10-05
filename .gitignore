@@ -10,6 +10,15 @@ dist-electron/
 coverage/
 .idea/
 .vscode/
-display/release/
-display/tsconfig.tsbuildinfo
+app/release/
+server-app/node_modules/
+server-app/dist-electron/
+server-app/bundle/
+server-app/release/
+content-pack/node_modules/
+content-pack/dist-electron/
+content-pack/snapshot/
+content-pack/release/
+content-pack/.test-uploads/
+app/tsconfig.tsbuildinfo
 tsconfig.tsbuildinfo

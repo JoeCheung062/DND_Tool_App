@@ -1,7 +1,7 @@
 {
   "name": "dnd-app",
   "private": true,
-  "description": "DND App — API server, CMS, and Display desktop app",
+  "description": "DND App — API server, CMS, and Electron desktop app",
   "scripts": {
     "dev": "npm run dev --prefix server",
     "build": "npm run build --prefix server",
@@ -26,12 +26,12 @@
     "cms:dev": "npm run dev --prefix cms",
     "cms:build": "npm run build --prefix cms",
     "cms:preview": "npm run preview --prefix cms",
-    "display:install": "npm install --prefix display",
-    "display:dev": "npm run dev --prefix display",
-    "display:build": "npm run build --prefix display",
-    "display:start": "npm run start --prefix display",
-    "display:pack": "npm run pack --prefix display",
-    "display:dist": "npm run dist --prefix display",
-    "display:test": "npm run test:logic --prefix display"
+    "app:install": "npm install --prefix app",
+    "app:dev": "npm run dev --prefix app",
+    "app:build": "npm run build --prefix app",
+    "app:start": "npm run start --prefix app",
+    "app:pack": "npm run pack --prefix app",
+    "app:dist": "npm run dist --prefix app",
+    "app:test": "npm run test:logic --prefix app"
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { adminApi } from "../api/resources";
-import type { Overview } from "../api/types";
+import { MATERIAL_TYPE_LABEL, type Overview } from "../api/types";
 import { ErrorBanner, LoadingState, PageHeader } from "../components/ui";
 
 const links = [
@@ -60,7 +60,7 @@ export function DashboardPage() {
             <div className="stats" style={{ marginBottom: 0 }}>
               {(["IMAGE", "EFFECT", "SOUND"] as const).map((type) => (
                 <div key={type} className="stat-card">
-                  <span>{type}</span>
+                  <span>{MATERIAL_TYPE_LABEL[type]}</span>
                   <strong>{data.materialsByType[type] ?? 0}</strong>
                 </div>
               ))}

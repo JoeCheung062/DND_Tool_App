@@ -13,7 +13,7 @@ const envSchema = z.object({
     .string()
     .default("http://localhost:5173,http://localhost:5174"),
   UPLOAD_DIR: z.string().default("uploads"),
-  MAX_FILE_SIZE_MB: z.coerce.number().default(5),
+  MAX_FILE_SIZE_MB: z.coerce.number().default(100),
   // Optional S3 — when unset, files are stored locally
   S3_ENABLED: z
     .string()

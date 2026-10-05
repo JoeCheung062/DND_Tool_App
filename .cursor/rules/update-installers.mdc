@@ -1,0 +1,14 @@
+---
+description: Rebuild installation packages after every app or backend update
+alwaysApply: true
+---
+
+# Installation packages
+
+After each update to the desktop app or the backend, rebuild the affected installation package before finishing. Do this even when the user does not repeat the request.
+
+- Desktop app (Display Mode, Control Mode, connection, UI): from `app/`, run `CSC_IDENTITY_AUTO_DISCOVERY=false npm run build` and then `CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg zip --arm64 --x64 --win nsis --x64 --publish never`. Do not bake `VITE_API_BASE`. Packages land in `app/release/`.
+- Backend (API, CMS, database, discovery): rebuild the DND Server package in `server-app/` the same way. Packages land in `server-app/release/`.
+- Rebuild only the package whose code changed.
+- Leave packages unsigned (`CSC_IDENTITY_AUTO_DISCOVERY=false`).
+- Do not install over `/Applications` unless the user asks.

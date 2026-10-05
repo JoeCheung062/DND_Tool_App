@@ -24,6 +24,12 @@ export type User = {
 
 export type MaterialType = "IMAGE" | "EFFECT" | "SOUND";
 
+export const MATERIAL_TYPE_LABEL: Record<MaterialType, string> = {
+  IMAGE: "Image",
+  EFFECT: "Animation",
+  SOUND: "Sound",
+};
+
 export type Room = {
   id: string;
   name: string;
@@ -59,16 +65,29 @@ export type Material = {
   name: string;
   general?: boolean;
   assetUrl: string;
+  npc?: boolean;
+  characterArtUrl?: string | null;
   campaigns?: { id: string; name: string }[];
   tagList?: { id: string; name: string }[];
 };
 
+export type CombinationCategory = "STANDARD" | "ENVIRONMENT_PACK";
+
 export type Combination = {
   id: string;
   name: string;
-  mainMaterialId: string;
+  category?: CombinationCategory;
+  mainMaterialId?: string | null;
   mainMaterial?: Material;
   connectMaterialList?: Material[];
+  zone1MaterialId?: string | null;
+  zone2MaterialId?: string | null;
+  zone3MaterialId?: string | null;
+  zone4MaterialId?: string | null;
+  zone1Material?: Material | null;
+  zone2Material?: Material | null;
+  zone3Material?: Material | null;
+  zone4Material?: Material | null;
 };
 
 export type Overview = {

@@ -12,8 +12,16 @@ import apiRoutes from "./routes/index.js";
 
 export function createApp() {
   const app = express();
+  const cmsDir = process.env.CMS_DIR?.trim();
 
-  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      ...(cmsDir
+        ? { contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }
+        : {}),
+    })
+  );
   app.use(
     cors({
       origin: corsOriginOption(),
@@ -26,15 +34,17 @@ export function createApp() {
 
   app.use("/uploads", express.static(path.resolve(env.UPLOAD_DIR)));
 
-  app.get("/", (_req, res) => {
-    res.json({
-      success: true,
-      message: "DND App API",
-      docs: "/api/docs",
-      health: "/api/health",
-      socket: "/socket.io",
+  if (!cmsDir) {
+    app.get("/", (_req, res) => {
+      res.json({
+        success: true,
+        message: "DND App API",
+        docs: "/api/docs",
+        health: "/api/health",
+        socket: "/socket.io",
+      });
     });
-  });
+  }
 
   app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
   app.get("/api/docs.json", (_req, res) => {
@@ -42,6 +52,27 @@ export function createApp() {
   });
 
   app.use("/api", apiRoutes);
+
+  if (cmsDir) {
+    app.use(express.static(cmsDir, { index: "index.html" }));
+    app.use((req, res, next) => {
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        next();
+        return;
+      }
+      if (
+        req.path.startsWith("/api") ||
+        req.path.startsWith("/uploads") ||
+        req.path.startsWith("/socket.io")
+      ) {
+        next();
+        return;
+      }
+      res.sendFile(path.join(cmsDir, "index.html"), (err) => {
+        if (err) next();
+      });
+    });
+  }
 
   app.use(notFound);
   app.use(errorHandler);

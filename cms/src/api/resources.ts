@@ -116,6 +116,8 @@ export const materialsApi = {
     type: MaterialType;
     name: string;
     file: File;
+    npc?: boolean;
+    characterArt?: File | null;
     general?: boolean;
     campaignIds?: string[];
     tagIds?: string[];
@@ -125,6 +127,8 @@ export const materialsApi = {
     formData.append("name", body.name);
     formData.append("file", body.file);
     formData.append("general", body.general ? "true" : "false");
+    formData.append("npc", body.npc ? "true" : "false");
+    if (body.characterArt) formData.append("characterArt", body.characterArt);
     formData.append("campaignIds", JSON.stringify(body.campaignIds ?? []));
     formData.append("tagIds", JSON.stringify(body.tagIds ?? []));
     return api<Material>("/materials", { method: "POST", formData });
@@ -135,6 +139,8 @@ export const materialsApi = {
       type?: MaterialType;
       name?: string;
       file?: File;
+      npc?: boolean;
+      characterArt?: File | null;
       general?: boolean;
       campaignIds?: string[];
       tagIds?: string[];
@@ -144,6 +150,8 @@ export const materialsApi = {
     if (body.type) formData.append("type", body.type);
     if (body.name) formData.append("name", body.name);
     if (body.file) formData.append("file", body.file);
+    if (body.npc !== undefined) formData.append("npc", body.npc ? "true" : "false");
+    if (body.characterArt) formData.append("characterArt", body.characterArt);
     if (body.general !== undefined) {
       formData.append("general", body.general ? "true" : "false");
     }
@@ -163,15 +171,25 @@ export const combinationsApi = {
   list: () => api<Combination[]>("/combinations"),
   create: (body: {
     name: string;
-    mainMaterialId: string;
+    category?: "STANDARD" | "ENVIRONMENT_PACK";
+    mainMaterialId?: string;
     connectMaterialIds?: string[];
+    zone1MaterialId?: string;
+    zone2MaterialId?: string;
+    zone3MaterialId?: string;
+    zone4MaterialId?: string;
   }) => api<Combination>("/combinations", { method: "POST", json: body }),
   update: (
     id: string,
     body: {
       name?: string;
-      mainMaterialId?: string;
+      category?: "STANDARD" | "ENVIRONMENT_PACK";
+      mainMaterialId?: string | null;
       connectMaterialIds?: string[];
+      zone1MaterialId?: string | null;
+      zone2MaterialId?: string | null;
+      zone3MaterialId?: string | null;
+      zone4MaterialId?: string | null;
     }
   ) => api<Combination>(`/combinations/${id}`, { method: "PATCH", json: body }),
   remove: (id: string) =>

@@ -18,6 +18,7 @@ router.get("/health", (_req, res) => {
     data: {
       status: "ok",
       service: "dnd-app-server",
+      discovery: true,
       timestamp: new Date().toISOString(),
     },
   });

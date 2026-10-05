@@ -97,7 +97,9 @@ export async function createMaterial(
       type: input.type,
       name: input.name,
       general: input.general ?? false,
+      npc: input.npc ?? false,
       assetUrl: input.assetUrl,
+      ...(input.characterArtUrl ? { characterArtUrl: input.characterArtUrl } : {}),
       campaignPresets: {
         create: input.campaignIds.map((campaignId) => ({ campaignId })),
       },
@@ -146,6 +148,8 @@ export async function updateMaterial(id: string, input: UpdateMaterialInput) {
         name: input.name,
         assetUrl: input.assetUrl,
         ...(input.general !== undefined ? { general: input.general } : {}),
+        ...(input.npc !== undefined ? { npc: input.npc } : {}),
+        ...(input.characterArtUrl !== undefined ? { characterArtUrl: input.characterArtUrl } : {}),
       },
       include: materialInclude,
     });
@@ -156,6 +160,43 @@ export async function updateMaterial(id: string, input: UpdateMaterialInput) {
 
 export async function deleteMaterial(id: string) {
   await getMaterial(id);
-  await prisma.material.delete({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    const referenced = await tx.combination.findMany({
+      where: {
+        OR: [
+          { mainMaterialId: id },
+          { zone1MaterialId: id },
+          { zone2MaterialId: id },
+          { zone3MaterialId: id },
+          { zone4MaterialId: id },
+        ],
+      },
+    });
+    for (const combination of referenced) {
+      const cleared = {
+        ...(combination.mainMaterialId === id ? { mainMaterialId: null } : {}),
+        ...(combination.zone1MaterialId === id ? { zone1MaterialId: null } : {}),
+        ...(combination.zone2MaterialId === id ? { zone2MaterialId: null } : {}),
+        ...(combination.zone3MaterialId === id ? { zone3MaterialId: null } : {}),
+        ...(combination.zone4MaterialId === id ? { zone4MaterialId: null } : {}),
+      };
+      const zoneIds = [
+        combination.zone1MaterialId === id ? null : combination.zone1MaterialId,
+        combination.zone2MaterialId === id ? null : combination.zone2MaterialId,
+        combination.zone3MaterialId === id ? null : combination.zone3MaterialId,
+        combination.zone4MaterialId === id ? null : combination.zone4MaterialId,
+      ];
+      const mainId = combination.mainMaterialId === id ? null : combination.mainMaterialId;
+      const empty =
+        (combination.category === "STANDARD" && !mainId) ||
+        (combination.category === "ENVIRONMENT_PACK" && zoneIds.every((zoneId) => !zoneId));
+      if (empty) {
+        await tx.combination.delete({ where: { id: combination.id } });
+      } else {
+        await tx.combination.update({ where: { id: combination.id }, data: cleared });
+      }
+    }
+    await tx.material.delete({ where: { id } });
+  });
   return { id };
 }

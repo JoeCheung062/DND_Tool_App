@@ -92,16 +92,25 @@ export const openApiDocument = {
       },
       Combination: {
         type: "object",
-        required: ["name", "mainMaterialId"],
+        required: ["name"],
         properties: {
           id: { type: "string" },
           name: { type: "string" },
-          mainMaterialId: { type: "string", description: "Main material ID" },
+          category: {
+            type: "string",
+            enum: ["STANDARD", "ENVIRONMENT_PACK"],
+            description: "Optional. Environment Pack assigns one image to each of zone 1–4.",
+          },
+          mainMaterialId: { type: "string", description: "Main material ID. Required unless category is ENVIRONMENT_PACK." },
           connectMaterialIds: {
             type: "array",
             items: { type: "string" },
             description: "Connect materials (multiple)",
           },
+          zone1MaterialId: { type: "string", description: "Zone 1 image. Required for an environment pack." },
+          zone2MaterialId: { type: "string", description: "Zone 2 image. Required for an environment pack." },
+          zone3MaterialId: { type: "string", description: "Zone 3 image. Required for an environment pack." },
+          zone4MaterialId: { type: "string", description: "Zone 4 image. Required for an environment pack." },
         },
       },
     },

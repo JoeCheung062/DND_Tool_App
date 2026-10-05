@@ -1,0 +1,55 @@
+{
+  "name": "dnd-content-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DND Content — import rooms, campaigns, tags, materials, and combinations into DND Server",
+  "author": "DND App",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "export": "node scripts/export.mjs",
+    "build": "node scripts/build.mjs",
+    "test:import": "node scripts/selftest.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "electron": "^35.1.2",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.27.0"
+  },
+  "build": {
+    "appId": "com.dndapp.content",
+    "productName": "DND Content",
+    "copyright": "Copyright © DND App",
+    "directories": {
+      "output": "release",
+      "buildResources": "../app/build"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "electron/status.html",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "snapshot",
+        "to": "snapshot"
+      }
+    ],
+    "asar": true,
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.developer-tools",
+      "icon": "../app/build/icon.png"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "../app/build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

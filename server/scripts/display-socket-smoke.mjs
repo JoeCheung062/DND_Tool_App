@@ -143,6 +143,24 @@ const registeredScreens =
   registry.displays?.[0]?.screens?.map((s) => s.id) ||
   reg.registration.screens.map((s) => s.id);
 console.log("registered screens:", registeredScreens);
+const listed = await emitAck(control, "display:list", { roomId: room.id });
+if (!listed.ok || !listed.displays?.some((display) => display.clientId === clientId)) {
+  throw new Error(`control cannot see display: ${JSON.stringify(listed)}`);
+}
+const late = io(BASE, { path: "/socket.io", auth: { token }, transports: ["websocket"] });
+await new Promise((resolve, reject) => {
+  const t = setTimeout(() => reject(new Error("late control connect timeout")), 8000);
+  late.on("connect", () => {
+    clearTimeout(t);
+    resolve();
+  });
+});
+const lateJoin = await emitAck(late, "room:join", { roomId: room.id });
+if (!lateJoin.ok || !lateJoin.displays?.some((display) => display.clientId === clientId)) {
+  throw new Error(`late control missed displays: ${JSON.stringify(lateJoin)}`);
+}
+late.disconnect();
+console.log("control sees display", clientId);
 if (JSON.stringify(registry).includes(processToken1)) {
   throw new Error("process token leaked on display:registry");
 }
@@ -229,6 +247,46 @@ const verifyReq = await emitAck(control, "display:verify", {
 if (!verifyReq.ok) throw new Error(verifyReq.error);
 const verify = await verifyPromise;
 console.log("display:verify-result ok=", verify.ok);
+
+const soundHeard = new Promise((resolve, reject) => {
+  const t = setTimeout(() => reject(new Error("sound:play timeout")), 8000);
+  display.on("sound:play", (payload) => {
+    if (payload.requestId !== "smoke-sound") return;
+    clearTimeout(t);
+    resolve(payload);
+  });
+});
+const sound = await emitAck(control, "sound:play", {
+  roomId: room.id,
+  requestId: "smoke-sound",
+  channel: "bgm",
+  action: "play",
+  materialId,
+  volume: 0.4,
+  targets: [{ clientId, screenId: 1 }, { clientId, screenId: 2 }],
+});
+if (!sound.ok) throw new Error(sound.error || "sound:play failed");
+const heard = await soundHeard;
+if (heard.volume !== 0.4 || heard.targets.length !== 2) {
+  throw new Error(`sound payload mismatch: ${JSON.stringify(heard)}`);
+}
+console.log("sound:play ok", heard.channel, heard.action);
+
+const offer = await emitAck(control, "control:materials-offer", {
+  roomId: room.id,
+  port: 47821,
+  token: "test-token-value",
+  hosts: ["127.0.0.1"],
+  materials: [{ id: materialId, name: "Smoke", type: "IMAGE" }],
+});
+if (!offer.ok) throw new Error(offer.error || "control offer failed");
+const source = await emitAck(display, "materials:fetch-source", {
+  roomId: room.id,
+});
+if (!source.ok || source.offer?.token !== "test-token-value") {
+  throw new Error(`material source missing: ${JSON.stringify(source)}`);
+}
+console.log("control material source ok", source.offer.materials.length);
 
 await json(`/materials/${general.id}`, { method: "DELETE", token });
 await json(`/rooms/${room.id}`, { method: "DELETE", token });

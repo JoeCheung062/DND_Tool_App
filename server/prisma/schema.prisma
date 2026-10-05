@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin-arm64", "darwin", "windows"]
 }
 
 datasource db {
@@ -21,12 +22,19 @@ enum MaterialType {
   SOUND
 }
 
+enum CombinationCategory {
+  STANDARD
+  ENVIRONMENT_PACK
+}
+
 model Room {
   id         String    @id @default(cuid())
   name       String
   /// Selected script (Campaign) for this play session
   campaignId String?
   campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  /// Control layout: zones, map, and initiative. The server is the source of truth.
+  session    Json?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -108,6 +116,10 @@ model Material {
   name      String
   /// Available to every campaign (downloaded with any room's campaign)
   general   Boolean  @default(false)
+  /// Map avatar that also places Character Art into a zone
+  npc       Boolean  @default(false)
+  /// Full-body art shown in a zone when this NPC stands in that zone's scene area
+  characterArtUrl String?
   /// URL or path to the image / effect / sound file
   assetUrl  String
   createdAt DateTime     @default(now())
@@ -122,6 +134,10 @@ model Material {
   mainCombinations Combination[] @relation("MainMaterial")
   /// Combinations where this is a connected material
   connectLinks     CombinationConnect[]
+  zone1Combinations Combination[] @relation("Zone1Material")
+  zone2Combinations Combination[] @relation("Zone2Material")
+  zone3Combinations Combination[] @relation("Zone3Material")
+  zone4Combinations Combination[] @relation("Zone4Material")
 }
 
 /// Join: Material ↔ Campaign (presets, many-to-many)
@@ -149,18 +165,32 @@ model MaterialTag {
 
 /// Combination of materials for a scene / slide stack
 model Combination {
-  id             String   @id @default(cuid())
+  id             String                @id @default(cuid())
   name           String
-  /// Main material (single)
-  mainMaterialId String
-  mainMaterial   Material @relation("MainMaterial", fields: [mainMaterialId], references: [id], onDelete: Restrict)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  /// Optional. Environment packs assign one image to each zone instead of a main material.
+  category       CombinationCategory   @default(STANDARD)
+  /// Main material (single). Unused for an environment pack.
+  mainMaterialId String?
+  mainMaterial   Material?             @relation("MainMaterial", fields: [mainMaterialId], references: [id], onDelete: SetNull)
+  zone1MaterialId String?
+  zone2MaterialId String?
+  zone3MaterialId String?
+  zone4MaterialId String?
+  zone1Material   Material?            @relation("Zone1Material", fields: [zone1MaterialId], references: [id], onDelete: SetNull)
+  zone2Material   Material?            @relation("Zone2Material", fields: [zone2MaterialId], references: [id], onDelete: SetNull)
+  zone3Material   Material?            @relation("Zone3Material", fields: [zone3MaterialId], references: [id], onDelete: SetNull)
+  zone4Material   Material?            @relation("Zone4Material", fields: [zone4MaterialId], references: [id], onDelete: SetNull)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
   /// Connect materials (multiple selections)
   connectMaterials CombinationConnect[]
 
   @@index([mainMaterialId])
+  @@index([zone1MaterialId])
+  @@index([zone2MaterialId])
+  @@index([zone3MaterialId])
+  @@index([zone4MaterialId])
 }
 
 /// Join: Combination ↔ connected Materials (many-to-many)

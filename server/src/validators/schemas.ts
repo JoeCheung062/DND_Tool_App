@@ -65,6 +65,8 @@ export const createRoomSchema = z.object({
 export const updateRoomSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   campaignId: z.string().min(1).nullable().optional(),
+  /** Control layout saved by the room, not by a single Control Mode window. */
+  session: z.unknown().nullable().optional(),
 });
 
 // ── Campaign ─────────────────────────────────────────────────────
@@ -109,6 +111,9 @@ export const createMaterialSchema = z.object({
   assetUrl: z.string().min(1).optional(),
   /** Included in every campaign download */
   general: z.boolean().optional(),
+  /** Avatar on the map, Character Art in the matching zone */
+  npc: z.boolean().optional(),
+  characterArtUrl: z.string().min(1).nullable().optional(),
   campaignIds: z.array(z.string().min(1)).default([]),
   tagIds: z.array(z.string().min(1)).default([]),
 });
@@ -118,22 +123,92 @@ export const updateMaterialSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   assetUrl: z.string().min(1).optional(),
   general: z.boolean().optional(),
+  npc: z.boolean().optional(),
+  characterArtUrl: z.string().min(1).nullable().optional(),
   campaignIds: z.array(z.string().min(1)).optional(),
   tagIds: z.array(z.string().min(1)).optional(),
 });
 
 // ── Combination ──────────────────────────────────────────────────
-export const createCombinationSchema = z.object({
-  name: z.string().min(1).max(200),
-  mainMaterialId: z.string().min(1),
-  connectMaterialIds: z.array(z.string().min(1)).default([]),
-});
+const combinationCategorySchema = z.enum(["STANDARD", "ENVIRONMENT_PACK"]);
 
-export const updateCombinationSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  mainMaterialId: z.string().min(1).optional(),
-  connectMaterialIds: z.array(z.string().min(1)).optional(),
-});
+const zoneMaterialFields = {
+  zone1MaterialId: z.string().min(1).optional(),
+  zone2MaterialId: z.string().min(1).optional(),
+  zone3MaterialId: z.string().min(1).optional(),
+  zone4MaterialId: z.string().min(1).optional(),
+};
+
+function requireZoneImages(
+  value: {
+    zone1MaterialId?: string;
+    zone2MaterialId?: string;
+    zone3MaterialId?: string;
+    zone4MaterialId?: string;
+  },
+  ctx: z.RefinementCtx
+) {
+  for (const key of [
+    "zone1MaterialId",
+    "zone2MaterialId",
+    "zone3MaterialId",
+    "zone4MaterialId",
+  ] as const) {
+    if (!value[key]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: "Choose an image for each zone",
+      });
+    }
+  }
+}
+
+export const createCombinationSchema = z
+  .object({
+    name: z.string().min(1).max(200),
+    category: combinationCategorySchema.default("STANDARD"),
+    mainMaterialId: z.string().min(1).optional(),
+    connectMaterialIds: z.array(z.string().min(1)).default([]),
+    ...zoneMaterialFields,
+  })
+  .superRefine((value, ctx) => {
+    if (value.category === "ENVIRONMENT_PACK") {
+      requireZoneImages(value, ctx);
+      return;
+    }
+    if (!value.mainMaterialId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["mainMaterialId"],
+        message: "Main material is required",
+      });
+    }
+  });
+
+export const updateCombinationSchema = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    category: combinationCategorySchema.optional(),
+    mainMaterialId: z.string().min(1).nullable().optional(),
+    connectMaterialIds: z.array(z.string().min(1)).optional(),
+    zone1MaterialId: z.string().min(1).nullable().optional(),
+    zone2MaterialId: z.string().min(1).nullable().optional(),
+    zone3MaterialId: z.string().min(1).nullable().optional(),
+    zone4MaterialId: z.string().min(1).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.category !== "ENVIRONMENT_PACK") return;
+    requireZoneImages(
+      {
+        zone1MaterialId: value.zone1MaterialId ?? undefined,
+        zone2MaterialId: value.zone2MaterialId ?? undefined,
+        zone3MaterialId: value.zone3MaterialId ?? undefined,
+        zone4MaterialId: value.zone4MaterialId ?? undefined,
+      },
+      ctx
+    );
+  });
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateAdminInput = z.infer<typeof createAdminSchema>;

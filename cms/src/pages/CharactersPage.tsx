@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { charactersApi, usersApi } from "../api/resources";
 import type { Character, User } from "../api/types";
 import { DataTable } from "../components/DataTable";
+import { DropFile } from "../components/DropFile";
 import { Modal } from "../components/Modal";
 import { ErrorBanner, Field, LoadingState, PageHeader } from "../components/ui";
 
@@ -171,26 +172,30 @@ export function CharactersPage() {
           </>
         }
       >
-        <form id="char-form" onSubmit={onSubmit}>
+        <form
+          id="char-form"
+          onSubmit={onSubmit}
+          onDragOver={(event) => event.preventDefault()}
+        >
           <Field label="Name">
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </Field>
           <Field label={editing ? "Replace illustration (optional)" : "Illustration"}>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            <DropFile
+              accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+              file={file}
+              onFile={setFile}
+              onReject={(message) => setError(message || null)}
             />
-            {editing?.illustration && !file ? (
-              <span className="hint">
-                Current:{" "}
-                <a href={editing.illustration} target="_blank" rel="noreferrer">
-                  view
-                </a>
-              </span>
-            ) : null}
-            {file ? <span className="hint">Selected: {file.name}</span> : null}
           </Field>
+          {editing?.illustration && !file ? (
+            <span className="hint">
+              Current:{" "}
+              <a href={editing.illustration} target="_blank" rel="noreferrer">
+                view
+              </a>
+            </span>
+          ) : null}
           <Field label="Owner (user)">
             <select value={userId} onChange={(e) => setUserId(e.target.value)} required>
               <option value="" disabled>

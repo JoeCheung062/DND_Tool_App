@@ -39,9 +39,15 @@ function materialPayloadFromRequest(req: Request) {
     name: req.body.name,
     assetUrl: req.body.assetUrl || undefined,
     general: parseBool(req.body.general),
+    npc: parseBool(req.body.npc),
     campaignIds: parseIdList(req.body.campaignIds) ?? [],
     tagIds: parseIdList(req.body.tagIds) ?? [],
   };
+}
+
+function uploadedFile(req: Request, field: "file" | "characterArt") {
+  const files = req.files as { file?: Express.Multer.File[]; characterArt?: Express.Multer.File[] } | undefined;
+  return files?.[field]?.[0];
 }
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
@@ -74,8 +80,9 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
   const input = createMaterialSchema.parse(raw);
 
   let assetUrl = input.assetUrl;
-  if (req.file) {
-    const uploaded = await saveUpload(req.file, req.user?.id);
+  const avatar = uploadedFile(req, "file") ?? req.file;
+  if (avatar) {
+    const uploaded = await saveUpload(avatar, req.user?.id);
     assetUrl = uploaded.url;
   }
 
@@ -86,9 +93,17 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
     );
   }
 
+  let characterArtUrl: string | null | undefined;
+  const art = uploadedFile(req, "characterArt");
+  if (art) {
+    const uploaded = await saveUpload(art, req.user?.id);
+    characterArtUrl = uploaded.url;
+  }
+
   const material = await materialService.createMaterial({
     ...input,
     assetUrl,
+    ...(characterArtUrl ? { characterArtUrl } : {}),
   });
   res.status(201).json({ success: true, data: material });
 });
@@ -99,15 +114,22 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
     name: req.body.name || undefined,
     assetUrl: req.body.assetUrl || undefined,
     general: parseBool(req.body.general),
+    npc: parseBool(req.body.npc),
     campaignIds: parseIdList(req.body.campaignIds),
     tagIds: parseIdList(req.body.tagIds),
   };
   const input = updateMaterialSchema.parse(raw);
 
   const data = { ...input };
-  if (req.file) {
-    const uploaded = await saveUpload(req.file, req.user?.id);
+  const avatar = uploadedFile(req, "file") ?? req.file;
+  if (avatar) {
+    const uploaded = await saveUpload(avatar, req.user?.id);
     data.assetUrl = uploaded.url;
+  }
+  const art = uploadedFile(req, "characterArt");
+  if (art) {
+    const uploaded = await saveUpload(art, req.user?.id);
+    data.characterArtUrl = uploaded.url;
   }
 
   const material = await materialService.updateMaterial(

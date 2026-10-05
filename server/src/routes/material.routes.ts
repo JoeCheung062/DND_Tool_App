@@ -10,8 +10,13 @@ router.use(authenticate);
 
 router.get("/", materialController.list);
 
-/** Multipart: fields type, name, campaignIds, tagIds + optional file */
-router.post("/", upload.single("file"), materialController.create);
+const materialFiles = upload.fields([
+  { name: "file", maxCount: 1 },
+  { name: "characterArt", maxCount: 1 },
+]);
+
+/** Multipart: fields type, name, campaignIds, tagIds, npc + file and optional characterArt */
+router.post("/", materialFiles, materialController.create);
 
 router.get(
   "/:id",
@@ -22,7 +27,7 @@ router.get(
 router.patch(
   "/:id",
   validate({ params: idParamSchema }),
-  upload.single("file"),
+  materialFiles,
   materialController.update
 );
 

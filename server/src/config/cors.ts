@@ -28,20 +28,36 @@ export function corsOriginOption():
     };
   }
 
-  if (allowed.length === 1) {
-    return allowed[0]!;
-  }
-
   return (origin, callback) => {
-    if (!origin) {
-      // Non-browser / same-origin / Electron file origins may omit Origin
-      callback(null, true);
-      return;
-    }
-    if (allowed.includes(origin)) {
-      callback(null, origin);
+    // Packaged Electron loads from file:// and sends that origin on the WebSocket
+    // handshake. A normal browser sends "null" for the same page. Both must be
+    // allowed or the other device fails with "websocket error".
+    if (
+      !origin ||
+      origin === "null" ||
+      isFileOrigin(origin) ||
+      allowed.includes(origin) ||
+      isLanOrigin(origin)
+    ) {
+      callback(null, origin && origin !== "null" ? origin : true);
       return;
     }
     callback(new Error(`Origin ${origin} not allowed`), false);
   };
+}
+
+function isFileOrigin(origin: string) {
+  return origin === "file://" || origin.startsWith("file://");
+}
+
+function isLanOrigin(origin: string) {
+  try {
+    const host = new URL(origin).hostname;
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return true;
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+    return /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(host);
+  } catch {
+    return false;
+  }
 }

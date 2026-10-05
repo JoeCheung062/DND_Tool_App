@@ -359,6 +359,35 @@ p {
   resize: vertical;
 }
 
+.dropzone {
+  position: relative;
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+  padding: 1.15rem 0.9rem;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  background: #fffdf8;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone.over {
+  border-color: var(--rust);
+  background: rgba(163, 75, 46, 0.08);
+}
+
+.dropzone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dropzone strong {
+  font-size: 0.95rem;
+}
+
 .checklist {
   display: grid;
   gap: 0.35rem;
@@ -375,6 +404,91 @@ p {
   gap: 0.5rem;
   align-items: center;
   font-size: 0.92rem;
+}
+
+.zone-pick {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.zone-pick-preview {
+  width: 148px;
+  height: 112px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #1c1915;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #f4efe6;
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 0.4rem;
+}
+
+.zone-pick-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.zone-pick-controls {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.zone-pick-controls select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  background: #fffdf8;
+}
+
+.zone-thumbs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+}
+
+.zone-thumbs button {
+  flex: 0 0 84px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 0.25rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.zone-thumbs button.on {
+  border-color: var(--moss);
+  box-shadow: 0 0 0 2px rgba(47, 93, 74, 0.28);
+}
+
+.zone-thumbs img {
+  width: 100%;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+  background: #1c1915;
+}
+
+.zone-thumbs span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .modal-backdrop {
