@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Socket } from "socket.io-client";
 import { CombinationDeck } from "../components/CombinationDeck";
-import { SoundDeck, SoundEffectList } from "../components/SoundDeck";
+import {
+  SoundDeck,
+  SoundEffectList,
+  type BgmState,
+} from "../components/SoundDeck";
 import { InitiativePanel } from "../components/InitiativePanel";
 import { MapCanvas } from "../components/MapCanvas";
 import { MaterialMarkMenu } from "../components/MaterialMarkMenu";
@@ -45,6 +49,7 @@ import {
   type ZoneConfig,
   type ZoneLayer,
 } from "../lib/controlZones";
+
 import {
   addMapMaterial,
   assignmentsForMap,
@@ -55,6 +60,7 @@ import {
   type MapScreenConfig,
 } from "../lib/controlMap";
 import { allSpeakers, clampVolume, withoutScreen, type SoundAction, type SoundChannel, type SpeakerTarget } from "../lib/soundDeck";
+
 
 type LibraryItem = Material & {
   localUrl: string;
@@ -240,6 +246,12 @@ export function ControlSessionPage() {
     step?: "root" | "kind" | "text" | "color";
     color?: string;
   } | null>(null);
+  const [bgmState, setBgmState] = useState<BgmState>({
+  activeId: null,
+  playing: false,
+  position: 0,
+  volume: 1,
+});
   const [measureArm, setMeasureArm] = useState<MeasureMode | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [displays, setDisplays] = useState<ControlDisplay[]>([]);
@@ -1221,33 +1233,67 @@ export function ControlSessionPage() {
         </h2>
         </div>
         <div className="library-body">
-        <div hidden={libraryPanel !== "bgm"}>
-          <SoundDeck
-            materials={library}
-            speakerCount={screens.length}
-            disabled={!socket}
-            onBgm={(materialId, volume, position) => {
-              bgmLevelRef.current = volume;
-              sendSound("bgm", "play", materialId, volume, position);
-            }}
-            onPauseBgm={(volume) => {
-              bgmLevelRef.current = volume;
-              sendSound("bgm", "pause", undefined, volume);
-            }}
-            onSeekBgm={(position, volume) => {
-              bgmLevelRef.current = volume;
-              sendSound("bgm", "seek", undefined, volume, position);
-            }}
-            onStopBgm={(volume) => {
-              bgmLevelRef.current = volume;
-              sendSound("bgm", "stop", undefined, volume);
-            }}
-            onVolume={(volume) => {
-              bgmLevelRef.current = volume;
-              sendSound("bgm", "volume", undefined, volume);
-            }}
-          />
-        </div>
+<div hidden={libraryPanel !== "bgm"}>
+  <SoundDeck
+    materials={library}
+    speakerCount={screens.length}
+    disabled={!socket}
+    bgmState={bgmState}
+    onPositionChange={(position) => {
+      setBgmState((prev) => ({
+        ...prev,
+        position,
+      }));
+    }}
+    onBgm={(materialId, volume, position) => {
+      bgmLevelRef.current = volume;
+      setBgmState({
+        activeId: materialId,
+        playing: true,
+        position,
+        volume,
+      });
+      sendSound("bgm", "play", materialId, volume, position);
+    }}
+    onPauseBgm={(volume) => {
+      bgmLevelRef.current = volume;
+      setBgmState((prev) => ({
+        ...prev,
+        playing: false,
+        volume,
+      }));
+      sendSound("bgm", "pause", undefined, volume);
+    }}
+    onSeekBgm={(position, volume) => {
+      bgmLevelRef.current = volume;
+      setBgmState((prev) => ({
+        ...prev,
+        position,
+        volume,
+      }));
+      sendSound("bgm", "seek", undefined, volume, position);
+    }}
+    onStopBgm={(volume) => {
+      bgmLevelRef.current = volume;
+      setBgmState((prev) => ({
+        ...prev,
+        activeId: null,
+        playing: false,
+        position: 0,
+        volume,
+      }));
+      sendSound("bgm", "stop", undefined, volume);
+    }}
+    onVolume={(volume) => {
+      bgmLevelRef.current = volume;
+      setBgmState((prev) => ({
+        ...prev,
+        volume,
+      }));
+      sendSound("bgm", "volume", undefined, volume);
+    }}
+  />
+</div>
         {libraryPanel === "packs" ? (
           <EnvironmentPackList
             packs={combinations.filter((item) => item.category === "ENVIRONMENT_PACK")}
