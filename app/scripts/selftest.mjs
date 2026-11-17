@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createSocket } from "node:dgram";
-import { assignmentPlaysOnce, containRect, expandPlacedMaterials, isGifBytes, isVideoBytes, isVideoClip, layoutCanvasLayers, placedRect, placementFromCornerDrag, shouldHoldPreviousScene, shouldPlayOnce } from "../src/lib/canvasLayers.ts";
+import { assignmentPlaysOnce, containRect, expandPlacedMaterials, isGifBytes, isVideoBytes, isVideoClip, layoutCanvasLayers, placedRect, placementFromCornerDrag, rotatePlacementFromDrag, shouldHoldPreviousScene, shouldPlayOnce } from "../src/lib/canvasLayers.ts";
 import { buildPlayAssignments, combinationMaterialIds, filterCombinations } from "../src/lib/controlPlay.ts";
 import {
   belongsInAssetLibrary,
@@ -160,6 +160,7 @@ const resized = placementFromCornerDrag({
 assert.equal(Math.round(resized.scale * 100), 200);
 assert.equal(Math.round(resized.x * 100), 20);
 assert.equal(Math.round(resized.y * 100), 10);
+assert.equal(rotatePlacementFromDrag({ x: 0, y: 0, scale: 1, rotation: 90 }, 179, -179).rotation, 92);
 assert.equal(assignmentPlaysOnce({}, [{ type: "SOUND" }]), false);
 assert.equal(assignmentPlaysOnce({}, [{ type: "IMAGE" }]), false);
 const slashGif = path.resolve(
@@ -351,7 +352,7 @@ const sent = assignmentsForZone(
     number: 1,
     layers: [
       { id: "a", materialId: "map" },
-      { id: "b", materialId: "smoke" },
+      { id: "b", materialId: "smoke", rotation: 45 },
       { id: "c", materialId: "fire" },
     ],
     screenKey: "client-a:1",
@@ -363,7 +364,7 @@ assert.equal(sent.length, 2);
 assert.equal(sent[0].once, false);
 assert.deepEqual(sent[0].placements, [
   { materialId: "map", instanceId: "a", x: 0, y: 0, scale: 1 },
-  { materialId: "smoke", instanceId: "b", x: 0, y: 0, scale: 1 },
+  { materialId: "smoke", instanceId: "b", x: 0, y: 0, scale: 1, rotation: 45 },
 ]);
 assert.deepEqual(sent[0].materialIds, ["map", "smoke"]);
 assert.equal(sent[0].screenId, 1);
@@ -389,7 +390,7 @@ const shown = expandPlacedMaterials(
   ["goblin", "goblin"],
   [
     { materialId: "goblin", x: 0, y: 0, scale: 1 },
-    { materialId: "goblin", x: 0.1, y: 0.2, scale: 1.5 },
+    { materialId: "goblin", x: 0.1, y: 0.2, scale: 1.5, rotation: 45 },
   ],
   new Map([["goblin", { id: "goblin", name: "Goblin", localUrl: "local-material://goblin" }]])
 );
@@ -397,6 +398,7 @@ assert.equal(shown.length, 2);
 assert.notEqual(shown[0].id, shown[1].id);
 assert.equal(shown[0].localUrl, shown[1].localUrl);
 assert.equal(shown[1].x, 0.1);
+assert.equal(shown[1].rotation, 45);
 const kept = expandPlacedMaterials(
   ["goblin"],
   [{ materialId: "goblin", instanceId: "g2", x: 0.1, y: 0.2, scale: 1.5 }],
@@ -494,14 +496,14 @@ assert.deepEqual(colored.colors, ["#f87171"]);
 const savedRoom = parseRoomSession({
   zones: [1, 2, 3, 4].map((number) => ({
     number,
-    layers: number === 1 ? [{ id: "map-1", materialId: "tavern", x: 0.1, y: 0.2, scale: 1 }] : [],
+    layers: number === 1 ? [{ id: "map-1", materialId: "tavern", x: 0.1, y: 0.2, scale: 1, rotation: -90 }] : [],
     screenKey: number === 1 ? "display:1" : "",
     speakerKey: "",
   })),
   activeZone: 2,
   zoneView: "map",
   map: {
-    layers: [{ id: "layer-1", materialId: "testing-map", name: "North wall", hidden: true, x: 0, y: 0, scale: 1, markText: "Boss", markColor: "#F87171" }],
+    layers: [{ id: "layer-1", materialId: "testing-map", name: "North wall", hidden: true, x: 0, y: 0, scale: 1, rotation: 180, markText: "Boss", markColor: "#F87171" }],
     screenKey: "display:2",
     speakerKey: "display:2",
     columns: 40,
@@ -527,7 +529,9 @@ assert.deepEqual(snapScenePoint({ x: 1.4, y: -0.2 }, 10, 8), { x: 1, y: 0 });
 assert.deepEqual(snapScenePoint({ x: 0.33, y: 0.62 }, 4, 4), { x: 0.25, y: 0.5 });
 assert.equal(savedRoom?.map.focusCol, 4.5);
 assert.equal(savedRoom?.zones[0].layers[0].materialId, "tavern");
+assert.equal(savedRoom?.zones[0].layers[0].rotation, 270);
 assert.equal(savedRoom?.map.layers[0].name, "North wall");
+assert.equal(savedRoom?.map.layers[0].rotation, 180);
 assert.equal(savedRoom?.map.layers[0].hidden, true);
 assert.equal(savedRoom?.map.layers[0].markText, "Boss");
 assert.equal(savedRoom?.map.layers[0].markColor, "#f87171");

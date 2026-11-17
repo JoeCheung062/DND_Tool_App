@@ -5,6 +5,8 @@ import {
   normalizePlacement,
   placedRect,
   placementFromCornerDrag,
+  rotatePlacement,
+  rotatePlacementFromDrag,
   zoomPlacement,
   type MaterialPlacement,
   type ResizeCorner,
@@ -64,7 +66,7 @@ function PlacedMaterial({
   const [natural, setNatural] = useState({ width: 1, height: 1 });
   const dragRef = useRef<{
     pointerId: number;
-    mode: "move" | "resize";
+    mode: "move" | "resize" | "rotate";
     startX: number;
     startY: number;
     origin: MaterialPlacement;
@@ -74,6 +76,7 @@ function PlacedMaterial({
     originDistance?: number;
     originWidth?: number;
     originHeight?: number;
+    startAngle?: number;
   } | null>(null);
 
   useEffect(() => {
@@ -99,7 +102,8 @@ function PlacedMaterial({
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [material.localUrl]);
+  }
+  , [material.localUrl]);
 
   const box = placedRect(natural.width, natural.height, stage.width, stage.height, placement);
 
@@ -157,8 +161,29 @@ function PlacedMaterial({
         originWidth: drag.originWidth ?? box.width,
         originHeight: drag.originHeight ?? box.height,
         corner: drag.corner,
+        rotation: drag.origin.rotation,
+        flip: drag.origin.flip,
       })
     );
+  }
+
+  function rotate(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+    if (
+      !drag ||
+      drag.pointerId !== event.pointerId ||
+      drag.mode !== "rotate" ||
+      drag.startAngle === undefined ||
+      !onPlacement
+    ) {
+      return;
+    }
+    const point = stagePoint(event);
+    if (!point) return;
+    const centerX = box.x + box.width / 2;
+    const centerY = box.y + box.height / 2;
+    const angle = Math.atan2(point.y - centerY, point.x - centerX) * (180 / Math.PI);
+    onPlacement(material.id, rotatePlacementFromDrag(drag.origin, drag.startAngle, angle));
   }
 
   return (
@@ -171,6 +196,8 @@ function PlacedMaterial({
         width: box.width,
         height: box.height,
         zIndex,
+        transform: `rotate(${placement.rotation ?? 0}deg)`,
+        transformOrigin: "center center",
       }}
       onContextMenu={(event) => {
         if (!onOpenMark) return;
@@ -247,40 +274,73 @@ function PlacedMaterial({
         />
       ) : null}
       {selected
-        ? CORNERS.map((corner) => (
+        ? <>
+            {CORNERS.map((corner) => (
+              <button
+                key={corner}
+                type="button"
+                className={`zone-handle ${corner}`}
+                aria-label={`Zoom ${material.name} from the ${corner} corner`}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  onSelect?.(material.id);
+                  const point = stagePoint(event);
+                  if (!point || !onPlacement) return;
+                  const anchorX = corner === "nw" || corner === "sw" ? box.x + box.width : box.x;
+                  const anchorY = corner === "nw" || corner === "ne" ? box.y + box.height : box.y;
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  dragRef.current = {
+                    pointerId: event.pointerId,
+                    mode: "resize",
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    origin: placement,
+                    corner,
+                    anchorX,
+                    anchorY,
+                    originDistance: Math.max(1, Math.hypot(point.x - anchorX, point.y - anchorY)),
+                    originWidth: box.width,
+                    originHeight: box.height,
+                  };
+                }}
+                onPointerMove={resize}
+                onPointerUp={() => {
+                  dragRef.current = null;
+                }}
+              />
+            ))}
             <button
-              key={corner}
               type="button"
-              className={`zone-handle ${corner}`}
-              aria-label={`Zoom ${material.name} from the ${corner} corner`}
+              className="zone-handle rotate"
+              aria-label={`Rotate ${material.name}`}
+              title="Drag to rotate"
               onPointerDown={(event) => {
                 event.stopPropagation();
                 onSelect?.(material.id);
                 const point = stagePoint(event);
                 if (!point || !onPlacement) return;
-                const anchorX = corner === "nw" || corner === "sw" ? box.x + box.width : box.x;
-                const anchorY = corner === "nw" || corner === "ne" ? box.y + box.height : box.y;
+                const centerX = box.x + box.width / 2;
+                const centerY = box.y + box.height / 2;
                 event.currentTarget.setPointerCapture(event.pointerId);
                 dragRef.current = {
                   pointerId: event.pointerId,
-                  mode: "resize",
+                  mode: "rotate",
                   startX: event.clientX,
                   startY: event.clientY,
                   origin: placement,
-                  corner,
-                  anchorX,
-                  anchorY,
-                  originDistance: Math.max(1, Math.hypot(point.x - anchorX, point.y - anchorY)),
-                  originWidth: box.width,
-                  originHeight: box.height,
+                  startAngle: Math.atan2(point.y - centerY, point.x - centerX) * (180 / Math.PI),
                 };
               }}
-              onPointerMove={resize}
+              onPointerMove={rotate}
               onPointerUp={() => {
                 dragRef.current = null;
               }}
-            />
-          ))
+            >
+              <svg aria-hidden="true" viewBox="0 0 16 16">
+                <path d="M13 5V2m0 0h-3m3 0-2.1 2.1A5 5 0 1 0 13 8" />
+              </svg>
+            </button>
+          </>
         : null}
     </div>
   );
@@ -605,34 +665,48 @@ export function ZonePreview({
   selectedIdRef.current = selectedId;
 
   useEffect(() => {
-    const node = stageRef.current;
-    if (!node) return;
-    const measure = () => {
-      const rect = node.getBoundingClientRect();
-      setStage({
-        width: Math.max(1, rect.width),
-        height: Math.max(1, rect.height),
-      });
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    const wheel = (event: WheelEvent) => {
-      const selected = selectedIdRef.current;
-      if (!selected) return;
-      const material = materialsRef.current.find((item) => item.id === selected);
-      const place = onPlacementRef.current;
-      if (!material || !place) return;
-      event.preventDefault();
-      const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
-      place(material.id, zoomPlacement(normalizePlacement(material.placement), factor));
-    };
-    node.addEventListener("wheel", wheel, { passive: false });
-    return () => {
-      observer.disconnect();
-      node.removeEventListener("wheel", wheel);
-    };
-  }, []);
+  const node = stageRef.current;
+  if (!node) return;
+
+  const measure = () => {
+    const rect = node.getBoundingClientRect();
+    setStage({
+      width: Math.max(1, rect.width),
+      height: Math.max(1, rect.height),
+    });
+  };
+  measure();
+  const observer = new ResizeObserver(measure);
+  observer.observe(node);
+
+  const wheel = (event: WheelEvent) => {
+    const selected = selectedIdRef.current;
+    if (!selected) return;
+    const material = materialsRef.current.find((item) => item.id === selected);
+    const place = onPlacementRef.current;
+    if (!material || !place) return;
+
+    event.preventDefault();
+
+    const current = normalizePlacement(material.placement);
+
+    if (event.altKey) {
+      const delta = event.deltaY < 0 ? 15 : -15;
+      place(material.id, rotatePlacement(current, delta));
+      return;
+    }
+
+    const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+    place(material.id, zoomPlacement(current, factor));
+  };
+
+  node.addEventListener("wheel", wheel, { passive: false });
+
+  return () => {
+    observer.disconnect();
+    node.removeEventListener("wheel", wheel);
+  };
+}, []);
 
   return (
     <div

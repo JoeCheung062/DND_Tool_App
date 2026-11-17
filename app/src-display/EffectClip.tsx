@@ -72,7 +72,11 @@ function placeCanvas(
   canvas.style.height = `${Math.max(0, visible.height)}px`;
   canvas.style.right = "auto";
   canvas.style.bottom = "auto";
-  canvas.style.transform = placement?.flip ? "scaleX(-1)" : "none";
+  const parts: string[] = [];
+  if (placement?.rotation) parts.push(`rotate(${placement.rotation}deg)`);
+  if (placement?.flip) parts.push("scaleX(-1)");
+  canvas.style.transform = parts.length ? parts.join(" ") : "none";
+  canvas.style.transformOrigin = "center center";
   canvas.width = Math.max(1, Math.floor(visible.width));
   canvas.height = Math.max(1, Math.floor(visible.height));
   return { ctx: canvas.getContext("2d", { alpha: true }), box, visible };
@@ -338,7 +342,7 @@ function ImageEffect({
 
   useLayoutEffect(() => {
     paintRef.current?.();
-  }, [layer.x, layer.y, layer.scale, layer.flip, layoutKey]);
+  }, [layer.x, layer.y, layer.scale, layer.flip, layer.rotation, layoutKey]);
 
   return <canvas ref={canvasRef} className="effect-overlay" aria-label={layer.name} />;
 }
@@ -370,7 +374,7 @@ function VideoEffect({
   useLayoutEffect(() => {
     const video = videoRef.current;
     if (video) place(video);
-  }, [layer.x, layer.y, layer.scale, layer.flip, layoutKey]);
+  }, [layer.x, layer.y, layer.scale, layer.flip, layer.rotation, layoutKey]);
 
   return (
     <video
@@ -394,7 +398,13 @@ function VideoEffect({
               right: "auto",
               bottom: "auto",
               opacity: 1,
-              transform: layer.flip ? "scaleX(-1)" : "none",
+              transform: [
+                layer.rotation ? `rotate(${layer.rotation}deg)` : null,
+                layer.flip ? "scaleX(-1)" : null,
+              ]
+                .filter(Boolean)
+                .join(" ") || "none",
+              transformOrigin: "center center",
             }
           : { opacity: 0 }
       }

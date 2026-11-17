@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { MapMeasureOverlay } from "./MapMeasureOverlay";
 import { ZonePreview } from "./ZonePreview";
-import { normalizePlacement, zoomPlacement, type MaterialPlacement } from "../lib/canvasLayers";
+import { normalizePlacement, zoomPlacement, rotatePlacement, type MaterialPlacement } from "../lib/canvasLayers";
 import {
   gridCount,
   mapCamera,
@@ -126,9 +126,16 @@ export function MapCanvas({
         const material = materialsRef.current.find((item) => item.id === selected);
         const place = onPlacementRef.current;
         if (!material || !place) return;
+        const current = normalizePlacement(material.placement);
         event.preventDefault();
         event.stopPropagation();
-        place(material.id, zoomPlacement(normalizePlacement(material.placement), factor));
+
+        if (event.altKey) {
+          const delta = event.deltaY < 0 ? 15 : -15; // 每次轉 15 度
+          place(material.id, rotatePlacement(current, delta));
+          return;
+        }
+        place(material.id, zoomPlacement(current, factor));
         return;
       }
       event.preventDefault();

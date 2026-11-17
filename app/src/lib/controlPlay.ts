@@ -15,6 +15,7 @@ export type MaterialPlacementPayload = {
   y: number;
   scale: number;
   flip?: boolean;
+  rotation?: number;
 };
 
 export type MapFrame = {

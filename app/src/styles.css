@@ -2022,6 +2022,43 @@ button.effect-card:disabled {
   touch-action: none;
 }
 
+.zone-handle.rotate {
+  width: 18px;
+  height: 18px;
+  left: 50%;
+  top: -25px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  cursor: grab;
+}
+
+.zone-handle.rotate:active {
+  cursor: grabbing;
+}
+
+.zone-handle.rotate::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 2px;
+  height: 12px;
+  content: "";
+  background: var(--accent);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.zone-handle.rotate svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
 .zone-handle.nw {
   left: 6px;
   top: 6px;

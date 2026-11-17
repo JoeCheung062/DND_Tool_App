@@ -4,9 +4,10 @@ export type MaterialPlacement = {
   scale: number;
   /** Mirror the picture left to right. */
   flip?: boolean;
+  rotation?: number;
 };
 
-export const DEFAULT_PLACEMENT: MaterialPlacement = { x: 0, y: 0, scale: 1 };
+export const DEFAULT_PLACEMENT: MaterialPlacement = { x: 0, y: 0, scale: 1, rotation: 0};
 
 export type CanvasMaterial = {
   id: string;
@@ -17,6 +18,7 @@ export type CanvasMaterial = {
   y?: number;
   scale?: number;
   flip?: boolean;
+  rotation?: number;
 };
 
 export type CanvasLayer = {
@@ -29,6 +31,7 @@ export type CanvasLayer = {
   y: number;
   scale: number;
   flip?: boolean;
+  rotation?: number;
 };
 
 /** One screen entry per id, so two copies of the same material stay separate. */
@@ -43,10 +46,11 @@ export function expandPlacedMaterials<T extends { id: string }>(
         y?: number;
         scale?: number;
         flip?: boolean;
+        rotation?: number;
       }>
     | undefined,
   library: Map<string, T & { localUrl?: string; characterArtLocalUrl?: string | null }>
-): Array<T & { localUrl: string; x: number; y: number; scale: number; flip?: boolean }> {
+): Array<T & { localUrl: string; x: number; y: number; scale: number; flip?: boolean; rotation?: number }> {
   return ids.flatMap((id, index) => {
     const saved = library.get(id);
     if (!saved) return [];
@@ -64,6 +68,7 @@ export function expandPlacedMaterials<T extends { id: string }>(
         y: matched?.y ?? 0,
         scale: matched?.scale ?? 1,
         ...(matched?.flip ? { flip: true } : {}),
+        ...(matched?.rotation != null ? { rotation: matched.rotation } : {}),
       },
     ];
   });
@@ -171,6 +176,8 @@ export function normalizePlacement(input?: Partial<MaterialPlacement> | null): M
     x: Number.isFinite(x) ? x : 0,
     y: Number.isFinite(y) ? y : 0,
     scale: Number.isFinite(scale) && scale > 0 ? Math.min(8, Math.max(0.005, scale)) : 1,
+    flip: Boolean(input?.flip),
+    rotation: Number.isFinite(Number(input?.rotation)) ? Number(input?.rotation) : 0,
   };
 }
 
@@ -193,6 +200,8 @@ export function placementFromCornerDrag(input: {
   originWidth: number;
   originHeight: number;
   corner: ResizeCorner;
+  rotation?: number;
+  flip?: boolean;
 }) {
   const distance = Math.hypot(input.pointerX - input.anchorX, input.pointerY - input.anchorY);
   const factor = input.originDistance > 0 ? distance / input.originDistance : 1;
@@ -208,6 +217,8 @@ export function placementFromCornerDrag(input: {
     x: (centerX - stageWidth / 2) / stageWidth,
     y: (centerY - stageHeight / 2) / stageHeight,
     scale: input.originScale * (input.originWidth > 0 ? width / input.originWidth : factor),
+    rotation: input.rotation,
+    flip: input.flip,
   });
 }
 
@@ -229,6 +240,25 @@ export function containRect(
     width,
     height,
   };
+}
+
+export function rotatePlacement(
+  placement: MaterialPlacement,
+  deltaDegrees: number
+): MaterialPlacement {
+  return {
+    ...placement,
+    rotation: ((placement.rotation ?? 0) + deltaDegrees + 360) % 360,
+  };
+}
+
+export function rotatePlacementFromDrag(
+  placement: MaterialPlacement,
+  startAngle: number,
+  currentAngle: number
+): MaterialPlacement {
+  const delta = ((currentAngle - startAngle + 540) % 360) - 180;
+  return rotatePlacement(placement, delta);
 }
 
 /** Fitted size, then moved and scaled. x/y are fractions of the screen from center. */

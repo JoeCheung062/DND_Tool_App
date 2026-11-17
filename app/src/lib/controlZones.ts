@@ -12,6 +12,7 @@ export type ZoneLayer = {
   /** Mirror the picture left to right. */
   flip?: boolean;
   hidden?: boolean;
+  rotation?: number;
   /** Set when this zone layer was placed by an NPC standing in the zone's scene area. */
   sourceMapLayerId?: string;
   /** Show Character Art instead of the map Avatar. */
@@ -89,6 +90,7 @@ export function nextLayer(layers: ZoneLayer[], materialId: string, scale = 1): Z
     x: Math.min(0.4, copies * 0.08),
     y: Math.min(0.4, copies * 0.08),
     scale,
+    rotation: 0,
   };
 }
 
@@ -116,7 +118,14 @@ export function clearAssignments(screenKey: string, speakerKey: string) {
 }
 
 export function placementOf(layer: Partial<ZoneLayer> | MaterialPlacement): MaterialPlacement {
-  return normalizePlacement(layer);
+  const placement = normalizePlacement(layer);
+  return {
+    x: placement.x,
+    y: placement.y,
+    scale: placement.scale,
+    ...(placement.flip ? { flip: true } : {}),
+    ...(placement.rotation ? { rotation: placement.rotation } : {}),
+  };
 }
 
 /** Put each environment-pack image on the zone with the same number. Does not send to screens. */

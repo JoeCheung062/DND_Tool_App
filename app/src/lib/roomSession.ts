@@ -52,6 +52,9 @@ function layerOf(value: unknown): ZoneLayer | null {
   if (typeof value.y === "number" && Number.isFinite(value.y)) layer.y = value.y;
   if (typeof value.scale === "number" && Number.isFinite(value.scale)) layer.scale = value.scale;
   if (value.flip === true) layer.flip = true;
+  if (typeof value.rotation === "number" && Number.isFinite(value.rotation)) {
+    layer.rotation = ((value.rotation % 360) + 360) % 360;
+  }
   if (typeof value.sourceMapLayerId === "string" && value.sourceMapLayerId) {
     layer.sourceMapLayerId = value.sourceMapLayerId;
   }

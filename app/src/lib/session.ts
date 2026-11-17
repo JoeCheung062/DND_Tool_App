@@ -28,6 +28,7 @@ export type MaterialPlayEvent = {
       y?: number;
       scale?: number;
       flip?: boolean;
+      rotation?: number;
     }>;
     map?: { columns: number; rows: number; focusCol: number; focusRow: number; zoom?: number };
   }>;
